@@ -8,19 +8,18 @@ import (
 	"net/url"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/datatypes"
 )
  
 func main() {
 	e := echo.New()
 	e.Any("/*", func(c echo.Context) error {
 		httpReq := c.Request()
-		res := &struct{
+		req := &struct{
 			RemoteAddr string
 			URL string
 			Method string
 			Header http.Header
-			Body datatypes.JSON
+			Body []byte
 			Form url.Values
 			MultipartForm *multipart.Form
 		}{
@@ -34,10 +33,17 @@ func main() {
 		if httpReq.Body != nil {
 			reqBytes, err := io.ReadAll(httpReq.Body)
 			if err == nil {
-				res.Body = reqBytes
+				req.Body = reqBytes
 			}
 		}
-		return c.JSON(http.StatusOK, res)
+		log.Printf("req.RemoteAddr: %v", req.RemoteAddr)
+		log.Printf("req.URL: %v", req.URL)
+		log.Printf("req.Method: %v", req.Method)
+		log.Printf("req.Header: %v", req.Header)
+		log.Printf("req.Body: %v", string(req.Body))
+		log.Printf("req.Form: %v", req.Form)
+		log.Printf("req.MultipartForm: %v", req.MultipartForm)
+		return c.String(http.StatusOK, "OK")
 	})
 	if err := e.Start(":1323"); err != nil {
 		log.Fatal(err.Error())
