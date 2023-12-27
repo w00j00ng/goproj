@@ -6,10 +6,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"golang.design/x/clipboard"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/term"
 )
 
 var password string
@@ -28,11 +30,13 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		if password == "" {
-			fmt.Println("매개변수 누락 (password)")
+		fmt.Print("Enter Password: ")
+		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+    	if err != nil {
+        	fmt.Println(err.Error())
 			os.Exit(1)
-		}
-		bcryptPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+    	}
+		bcryptPassword, err := bcrypt.GenerateFromPassword(bytePassword, bcrypt.DefaultCost)
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
@@ -44,7 +48,7 @@ to quickly create a Cobra application.`,
 			}
 			clipboard.Write(clipboard.FmtText, bcryptPassword)
 		} else {
-			fmt.Println(string(bcryptPassword))
+			fmt.Printf("\r%s", string(bcryptPassword))
 		}
 	},
 }
@@ -68,6 +72,5 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	rootCmd.PersistentFlags().StringVar(&password, "password", "", "password")
 	rootCmd.PersistentFlags().BoolVar(&onClipboard, "clipboard", false, "copy on clipboard")
 }
