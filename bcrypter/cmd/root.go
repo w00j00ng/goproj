@@ -32,17 +32,17 @@ to quickly create a Cobra application.`,
 		fmt.Print("Enter Password: ")
 		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
     	if err != nil {
-        	fmt.Println(err.Error())
+        	fmt.Printf("\r%s", err.Error())
 			os.Exit(1)
     	}
 		bcryptPassword, err := bcrypt.GenerateFromPassword(bytePassword, bcrypt.DefaultCost)
 		if err != nil {
-			fmt.Println(err.Error())
+			fmt.Printf("\r%s", err.Error())
 			os.Exit(1)
 		}
 		if onClipboard {
 			if err := clipboard.Init(); err != nil {
-				fmt.Println(err.Error())
+				fmt.Printf("\r%s", err.Error())
 				os.Exit(1)
 			}
 			clipboard.Write(clipboard.FmtText, bcryptPassword)
