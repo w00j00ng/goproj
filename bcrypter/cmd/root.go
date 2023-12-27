@@ -14,7 +14,6 @@ import (
 	"golang.org/x/term"
 )
 
-var password string
 var onClipboard bool
 
 // rootCmd represents the base command when called without any subcommands
@@ -47,6 +46,7 @@ to quickly create a Cobra application.`,
 				os.Exit(1)
 			}
 			clipboard.Write(clipboard.FmtText, bcryptPassword)
+			fmt.Printf("\rcopied on the clipboard!",)
 		} else {
 			fmt.Printf("\r%s", string(bcryptPassword))
 		}
