@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "path": "../bcrypter",
+      "name": "bcrypter"
+    },
+    {
+      "path": "../helloworld",
+      "name": "helloworld"
+    },
+	{
+      "path": ".",
+      "name": "workspace"
+    }
+  ],
+  "settings": {
+    "workbench.iconTheme": "material-icon-theme"
+  }
+}
