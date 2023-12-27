@@ -8,10 +8,12 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"golang.design/x/clipboard"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var password string
+var onClipboard bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -35,7 +37,15 @@ to quickly create a Cobra application.`,
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
-		fmt.Println(string(bcryptPassword))
+		if onClipboard {
+			if err := clipboard.Init(); err != nil {
+				fmt.Println(err.Error())
+				os.Exit(1)
+			}
+			clipboard.Write(clipboard.FmtText, bcryptPassword)
+		} else {
+			fmt.Println(string(bcryptPassword))
+		}
 	},
 }
 
@@ -59,6 +69,5 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.PersistentFlags().StringVar(&password, "password", "", "password")
+	rootCmd.PersistentFlags().BoolVar(&onClipboard, "clipboard", false, "copy on clipboard")
 }
-
-
