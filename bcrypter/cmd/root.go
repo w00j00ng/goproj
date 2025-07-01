@@ -67,5 +67,5 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	rootCmd.LocalFlags().BoolVar(&onClipboard, "clipboard", false, "copy on clipboard")
+	rootCmd.Flags().BoolVar(&onClipboard, "clipboard", false, "copy on clipboard")
 }
