@@ -118,7 +118,7 @@ void AddTrayIcon(HWND hwnd) {
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_TRAYICON;
     nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
-    wcscpy(nid.szTip, L"클립보드 팝업 감시기");
+    wcscpy(nid.szTip, L"Clip Flash");
 
     Shell_NotifyIcon(NIM_ADD, &nid);
 }
