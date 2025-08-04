@@ -2,6 +2,7 @@
 #include <wchar.h>
 #include <shellapi.h>
 #include <stdlib.h>
+#include <math.h>
 
 #ifndef WM_CLIPBOARDUPDATE
 #define WM_CLIPBOARDUPDATE 0x031D
@@ -18,6 +19,56 @@ HWND   hPopupWnd = NULL;
 WCHAR  currentMessage[8192] = L"";
 HFONT  hFont = NULL;
 NOTIFYICONDATA nid = { 0 };
+
+// 민감 정보 감지: URL 예외, 길이 6~64, 공백/제어문자 없음,
+// 숫자·영문·특수문자 중 2가지 이상 조합, per-char 엔트로피 ≥ 3.0bits
+static BOOL IsSensitive(const WCHAR* text) {
+    size_t len = wcslen(text);
+    if (len < 6 || len > 64) return FALSE;
+
+    // 1) URL 예외 처리
+    if (wcsstr(text, L"://") != NULL || wcsstr(text, L"www.") != NULL) {
+        return FALSE;
+    }
+
+    // 2) 공백·제어문자 배제
+    for (size_t i = 0; i < len; i++) {
+        if (iswspace(text[i]) || iswcntrl(text[i])) {
+            return FALSE;
+        }
+    }
+
+    // 3) 문자 카테고리 체크 (숫자, 영문, 특수문자)
+    BOOL hasDigit = FALSE, hasAlpha = FALSE, hasSpecial = FALSE;
+    for (size_t i = 0; i < len; i++) {
+        wchar_t c = text[i];
+        if (iswdigit(c)) hasDigit = TRUE;
+        else if (iswalpha(c)) hasAlpha = TRUE;
+        else hasSpecial = TRUE;
+    }
+    int categories = hasDigit + hasAlpha + hasSpecial;
+    if (categories < 2) {
+        return FALSE;
+    }
+
+    // 4) 샤논 엔트로피 계산 (ASCII 영역만)
+    double freq[128] = {0};
+    for (size_t i = 0; i < len; i++) {
+        wchar_t c = text[i];
+        if (c < 128) freq[(int)c] += 1.0;
+    }
+    double entropy = 0.0;
+    for (int i = 0; i < 128; i++) {
+        if (freq[i] > 0) {
+            double p = freq[i] / (double)len;
+            entropy -= p * (log(p) / log(2.0));
+        }
+    }
+    // 평균 비트(entropy per char)
+    double bitsPerChar = entropy;
+
+    return bitsPerChar >= 3.0;
+}
 
 void CleanupTrayIcon() {
     Shell_NotifyIcon(NIM_DELETE, &nid);
@@ -36,9 +87,9 @@ void ShowPopup(HWND hOwner, const WCHAR* text) {
     // 폰트 생성 (한 번만)
     if (!hFont) {
         hFont = CreateFontW(
-            -16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-            CLEARTYPE_QUALITY, DEFAULT_PITCH|FF_DONTCARE, L"Segoe UI"
+            -16,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,
+            DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY,DEFAULT_PITCH|FF_DONTCARE,L"Segoe UI"
         );
     }
 
@@ -59,9 +110,8 @@ void ShowPopup(HWND hOwner, const WCHAR* text) {
     hPopupWnd = CreateWindowExW(
         WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE|WS_EX_LAYERED,
         WINDOW_CLASS_NAME, L"", WS_POPUP,
-        x, y, w, h, hOwner, NULL, GetModuleHandle(NULL), NULL
+        x,y,w,h, hOwner, NULL, GetModuleHandle(NULL), NULL
     );
-
     SetLayeredWindowAttributes(
         hPopupWnd, 0,
         (255 * TRANSPARENCY_LEVEL) / 100,
@@ -92,12 +142,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (hData) {
                 WCHAR *clipText = GlobalLock(hData);
                 if (clipText) {
+                    const WCHAR* displayText = clipText;
+                    static const WCHAR placeholder[] = L"[보안 텍스트]";
+                    if (IsSensitive(clipText)) {
+                        displayText = placeholder;
+                    }
                     if (!lastText || wcscmp(clipText, lastText) != 0) {
                         if (lastText) free(lastText);
                         size_t len = (wcslen(clipText) + 1) * sizeof(WCHAR);
                         lastText = malloc(len);
                         memcpy(lastText, clipText, len);
-                        ShowPopup(hwnd, clipText);
+                        ShowPopup(hwnd, displayText);
                     }
                     GlobalUnlock(hData);
                 }
@@ -123,10 +178,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             POINT pt; GetCursorPos(&pt);
             SetForegroundWindow(hwnd);
             int cmd = TrackPopupMenu(
-                hMenu,
-                TPM_RETURNCMD|TPM_NONOTIFY,
-                pt.x, pt.y,
-                0, hwnd, NULL
+                hMenu, TPM_RETURNCMD|TPM_NONOTIFY,
+                pt.x, pt.y, 0, hwnd, NULL
             );
             DestroyMenu(hMenu);
             if (cmd == 1) {
@@ -173,7 +226,7 @@ int WINAPI wWinMain(
     // 히든 윈도우 + 트레이 아이콘
     HWND hWnd = CreateWindowExW(
         0, WINDOW_CLASS_NAME, L"Main",
-        0, 0,0,0,0,
+        0,0,0,0,0,
         NULL, NULL, hInst, NULL
     );
     AddTrayIcon(hWnd);
