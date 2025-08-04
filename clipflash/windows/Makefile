@@ -1,6 +1,6 @@
 # Makefile for main.c
 
-TARGET = clipboard_popup.exe
+TARGET = clipflash.exe
 SRC = main.c
 CC = gcc
 CFLAGS = -municode -mwindows
