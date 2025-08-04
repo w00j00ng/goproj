@@ -102,9 +102,30 @@ void ShowPopup(HWND hOwner, const WCHAR* text) {
     int h = min(rc.bottom + 20, 300);
     ReleaseDC(NULL, hdc);
 
-    // 화면 우하단 위치 계산
-    int x = GetSystemMetrics(SM_CXSCREEN) - w - 20;
-    int y = GetSystemMetrics(SM_CYSCREEN) - h - 60;
+    // ShowPopup 내 위치 계산 부분 수정
+    POINT pt; 
+    GetCursorPos(&pt);
+    HMONITOR hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(mi) };
+    GetMonitorInfoW(hMon, &mi);
+    RECT work = mi.rcWork;
+
+    int x = pt.x + 10;
+    int y = pt.y + 20;
+    // 우측/하단 경계
+    if (x + w > work.right) {
+        x = work.right - w - 5;
+    }
+    if (y + h > work.bottom) {
+        y = work.bottom - h - 5;
+    }
+    // 좌측/상단 경계
+    if (x < work.left) {
+        x = work.left + 5;
+    }      
+    if (y < work.top)     {
+        y = work.top + 5;
+    }   
 
     // 팝업 윈도우 생성
     hPopupWnd = CreateWindowExW(
