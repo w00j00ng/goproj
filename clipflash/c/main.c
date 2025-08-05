@@ -16,6 +16,9 @@
 #define ID_TRAY_EXIT         1
 #define ID_TRAY_TOGGLE_PAUSE 2
 
+// 복사된 텍스트 최대 처리 길이 (문자 수)
+#define MAX_CLIP_TEXT_LENGTH 1024 * 1024 * 4
+
 WCHAR *lastText = NULL;
 HWND   hPopupWnd = NULL;
 WCHAR  currentMessage[8192] = L"";
@@ -196,6 +199,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (hData) {
                 WCHAR *clipText = GlobalLock(hData);
                 if (clipText) {
+                    // --- 새로 추가된 길이 검사 ---
+                    size_t clipLen = wcslen(clipText);
+                    if (clipLen > MAX_CLIP_TEXT_LENGTH) {
+                        // 너무 긴 텍스트는 무시
+                        GlobalUnlock(hData);
+                        CloseClipboard();
+                        break;
+                    }
                     const WCHAR *displayText = clipText;
                     static const WCHAR placeholder[] = L"[보안 텍스트]";
                     if (IsSensitive(clipText)) {
