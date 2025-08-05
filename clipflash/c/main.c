@@ -13,12 +13,15 @@
 #define TRAY_ICON_UID       1
 #define WM_TRAYICON         (WM_USER + 1)
 #define TRANSPARENCY_LEVEL  50
+#define ID_TRAY_EXIT             1
+#define ID_TRAY_TOGGLE_PAUSE     2
 
 WCHAR *lastText = NULL;
 HWND   hPopupWnd = NULL;
 WCHAR  currentMessage[8192] = L"";
 HFONT  hFont = NULL;
 NOTIFYICONDATA nid = { 0 };
+static BOOL paused = FALSE;  // 일시정지 상태 플래그
 
 // 민감 정보 감지: URL 예외, 길이 6~64, 공백/제어문자 없음,
 // 숫자·영문·특수문자 중 2가지 이상 조합, per-char 엔트로피 ≥ 3.0bits
@@ -158,6 +161,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_CLIPBOARDUPDATE: {
         // 클립보드에 텍스트가 복사되었을 때
+        if (paused) {
+            break;  // 일시정지 중이면 무시
+        }
         if (OpenClipboard(NULL)) {
             HANDLE hData = GetClipboardData(CF_UNICODETEXT);
             if (hData) {
@@ -195,17 +201,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         // 트레이 아이콘 우클릭 메뉴
         if (lParam == WM_RBUTTONUP) {
             HMENU hMenu = CreatePopupMenu();
-            AppendMenuW(hMenu, MF_STRING, 1, L"종료");
+            AppendMenuW(hMenu, MF_STRING, ID_TRAY_TOGGLE_PAUSE,
+                       paused ? L"작업 재개" : L"일시정지");
+            AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"종료");
             POINT pt; GetCursorPos(&pt);
             SetForegroundWindow(hwnd);
-            int cmd = TrackPopupMenu(
-                hMenu, TPM_RETURNCMD|TPM_NONOTIFY,
-                pt.x, pt.y, 0, hwnd, NULL
-            );
+            int cmd = TrackPopupMenu(hMenu,
+                TPM_RETURNCMD | TPM_NONOTIFY,
+                pt.x, pt.y, 0, hwnd, NULL);
             DestroyMenu(hMenu);
-            if (cmd == 1) {
+            if (cmd == ID_TRAY_EXIT) {
                 CleanupTrayIcon();
                 PostQuitMessage(0);
+            } else if (cmd == ID_TRAY_TOGGLE_PAUSE) {
+                paused = !paused;
+                ShowPopup(hwnd,
+                    paused ? L"일시정지됨" : L"작업 재개됨");
             }
         }
         break;
