@@ -8,26 +8,29 @@
 #define WM_CLIPBOARDUPDATE 0x031D
 #endif
 
-#define POPUP_LIFETIME_MS   1000
-#define WINDOW_CLASS_NAME   L"ClipboardPopupWindow"
-#define TRAY_ICON_UID       1
-#define WM_TRAYICON         (WM_USER + 1)
-#define TRANSPARENCY_LEVEL  50
-#define ID_TRAY_EXIT             1
-#define ID_TRAY_TOGGLE_PAUSE     2
+#define POPUP_LIFETIME_MS    1000
+#define WINDOW_CLASS_NAME    L"ClipboardPopupWindow"
+#define TRAY_ICON_UID        1
+#define WM_TRAYICON          (WM_USER + 1)
+#define TRANSPARENCY_LEVEL   50
+#define ID_TRAY_EXIT         1
+#define ID_TRAY_TOGGLE_PAUSE 2
 
 WCHAR *lastText = NULL;
 HWND   hPopupWnd = NULL;
 WCHAR  currentMessage[8192] = L"";
 HFONT  hFont = NULL;
-NOTIFYICONDATA nid = { 0 };
+NOTIFYICONDATA nid = {0};
 static BOOL paused = FALSE;  // 일시정지 상태 플래그
 
 // 민감 정보 감지: URL 예외, 길이 6~64, 공백/제어문자 없음,
 // 숫자·영문·특수문자 중 2가지 이상 조합, per-char 엔트로피 ≥ 3.0bits
-static BOOL IsSensitive(const WCHAR* text) {
+static BOOL IsSensitive(const WCHAR *text)
+{
     size_t len = wcslen(text);
-    if (len < 6 || len > 64) return FALSE;
+    if (len < 6 || len > 64) {
+        return FALSE;
+    }
 
     // 1) URL 예외 처리
     if (wcsstr(text, L"://") != NULL || wcsstr(text, L"www.") != NULL) {
@@ -45,9 +48,13 @@ static BOOL IsSensitive(const WCHAR* text) {
     BOOL hasDigit = FALSE, hasAlpha = FALSE, hasSpecial = FALSE;
     for (size_t i = 0; i < len; i++) {
         wchar_t c = text[i];
-        if (iswdigit(c)) hasDigit = TRUE;
-        else if (iswalpha(c)) hasAlpha = TRUE;
-        else hasSpecial = TRUE;
+        if (iswdigit(c)) {
+            hasDigit = TRUE;
+        } else if (iswalpha(c)) {
+             hasAlpha = TRUE;
+        } else {
+            hasSpecial = TRUE;
+        }
     }
     int categories = hasDigit + hasAlpha + hasSpecial;
     if (categories < 2) {
@@ -58,7 +65,9 @@ static BOOL IsSensitive(const WCHAR* text) {
     double freq[128] = {0};
     for (size_t i = 0; i < len; i++) {
         wchar_t c = text[i];
-        if (c < 128) freq[(int)c] += 1.0;
+        if (c < 128) {
+             freq[(int)c] += 1.0;
+        }
     }
     double entropy = 0.0;
     for (int i = 0; i < 128; i++) {
@@ -73,43 +82,45 @@ static BOOL IsSensitive(const WCHAR* text) {
     return bitsPerChar >= 3.0;
 }
 
-void CleanupTrayIcon() {
+void CleanupTrayIcon(void)
+{
     Shell_NotifyIcon(NIM_DELETE, &nid);
 }
 
-void ShowPopup(HWND hOwner, const WCHAR* text) {
+void ShowPopup(HWND hOwner, const WCHAR *text)
+{
     // 이전 팝업 제거
     if (hPopupWnd) {
         DestroyWindow(hPopupWnd);
     }
 
     // 메시지 복사
-    wcsncpy(currentMessage, text, _countof(currentMessage)-1);
-    currentMessage[_countof(currentMessage)-1] = L'\0';
+    wcsncpy(currentMessage, text, _countof(currentMessage) - 1);
+    currentMessage[_countof(currentMessage) - 1] = L'\0';
 
     // 폰트 생성 (한 번만)
     if (!hFont) {
         hFont = CreateFontW(
-            -16,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,
-            DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
-            CLEARTYPE_QUALITY,DEFAULT_PITCH|FF_DONTCARE,L"Segoe UI"
+            -16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI"
         );
     }
 
     // 텍스트 크기 측정
     HDC hdc = GetDC(NULL);
     SelectObject(hdc, hFont);
-    RECT rc = {0,0,400,0};
-    DrawTextW(hdc, currentMessage, -1, &rc, DT_CALCRECT|DT_WORDBREAK);
+    RECT rc = {0, 0, 400, 0};
+    DrawTextW(hdc, currentMessage, -1, &rc, DT_CALCRECT | DT_WORDBREAK);
     int w = min(rc.right + 20, 400);
     int h = min(rc.bottom + 20, 300);
     ReleaseDC(NULL, hdc);
 
     // ShowPopup 내 위치 계산 부분 수정
-    POINT pt; 
+    POINT pt;
     GetCursorPos(&pt);
     HMONITOR hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi = { sizeof(mi) };
+    MONITORINFO mi = {sizeof(mi)};
     GetMonitorInfoW(hMon, &mi);
     RECT work = mi.rcWork;
 
@@ -125,16 +136,16 @@ void ShowPopup(HWND hOwner, const WCHAR* text) {
     // 좌측/상단 경계
     if (x < work.left) {
         x = work.left + 5;
-    }      
-    if (y < work.top)     {
+    }
+    if (y < work.top) {
         y = work.top + 5;
-    }   
+    }
 
     // 팝업 윈도우 생성
     hPopupWnd = CreateWindowExW(
-        WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_NOACTIVATE|WS_EX_LAYERED,
+        WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
         WINDOW_CLASS_NAME, L"", WS_POPUP,
-        x,y,w,h, hOwner, NULL, GetModuleHandle(NULL), NULL
+        x, y, w, h, hOwner, NULL, GetModuleHandle(NULL), NULL
     );
     SetLayeredWindowAttributes(
         hPopupWnd, 0,
@@ -146,18 +157,34 @@ void ShowPopup(HWND hOwner, const WCHAR* text) {
     UpdateWindow(hPopupWnd);
 }
 
-void AddTrayIcon(HWND hwnd) {
-    nid.cbSize           = sizeof(nid);
-    nid.hWnd             = hwnd;
-    nid.uID              = TRAY_ICON_UID;
-    nid.uFlags           = NIF_ICON|NIF_MESSAGE|NIF_TIP;
+void AddTrayIcon(HWND hwnd)
+{
+    // 커스텀 아이콘 로드 시도
+    HICON hIcon = (HICON)LoadImageW(
+        NULL,  // 파일 시스템에서 직접 로드
+        L"clipflash.ico",
+        IMAGE_ICON,
+        16, 16,  // 트레이 아이콘 크기
+        LR_LOADFROMFILE
+    );
+    
+    // 아이콘 로드 실패 시 기본 아이콘 사용
+    if (!hIcon) {
+        hIcon = LoadIcon(NULL, IDI_INFORMATION);
+    }
+    
+    nid.cbSize = sizeof(nid);
+    nid.hWnd = hwnd;
+    nid.uID = TRAY_ICON_UID;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_TRAYICON;
-    nid.hIcon            = LoadIcon(NULL, IDI_INFORMATION);
+    nid.hIcon = hIcon;
     wcscpy(nid.szTip, L"Clipflash");
     Shell_NotifyIcon(NIM_ADD, &nid);
 }
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
     switch (msg) {
     case WM_CLIPBOARDUPDATE: {
         // 클립보드에 텍스트가 복사되었을 때
@@ -169,13 +196,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (hData) {
                 WCHAR *clipText = GlobalLock(hData);
                 if (clipText) {
-                    const WCHAR* displayText = clipText;
+                    const WCHAR *displayText = clipText;
                     static const WCHAR placeholder[] = L"[보안 텍스트]";
                     if (IsSensitive(clipText)) {
                         displayText = placeholder;
                     }
                     if (!lastText || wcscmp(clipText, lastText) != 0) {
-                        if (lastText) free(lastText);
+                        if (lastText) {
+                            free(lastText);
+                        }
                         size_t len = (wcslen(clipText) + 1) * sizeof(WCHAR);
                         lastText = malloc(len);
                         memcpy(lastText, clipText, len);
@@ -204,7 +233,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             AppendMenuW(hMenu, MF_STRING, ID_TRAY_TOGGLE_PAUSE,
                        paused ? L"작업 재개" : L"일시정지");
             AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"종료");
-            POINT pt; GetCursorPos(&pt);
+            POINT pt;
+            GetCursorPos(&pt);
             SetForegroundWindow(hwnd);
             int cmd = TrackPopupMenu(hMenu,
                 TPM_RETURNCMD | TPM_NONOTIFY,
@@ -225,11 +255,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, RGB(30,30,30));
+        SetTextColor(hdc, RGB(30, 30, 30));
         SelectObject(hdc, hFont);
-        RECT rc; GetClientRect(hwnd, &rc);
+        RECT rc;
+        GetClientRect(hwnd, &rc);
         InflateRect(&rc, -10, -10);
-        DrawTextW(hdc, currentMessage, -1, &rc, DT_WORDBREAK|DT_LEFT|DT_TOP);
+        DrawTextW(hdc, currentMessage, -1, &rc, DT_WORDBREAK | DT_LEFT | DT_TOP);
         EndPaint(hwnd, &ps);
         break;
     }
@@ -242,23 +273,39 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 int WINAPI wWinMain(
     HINSTANCE hInst,
     HINSTANCE hPrevInstance,
-    PWSTR    pCmdLine,
-    int      nCmdShow
-) {
+    PWSTR pCmdLine,
+    int nCmdShow
+)
+{
+    // 커스텀 아이콘 로드
+    HICON hAppIcon = (HICON)LoadImageW(
+        NULL,  // 파일 시스템에서 직접 로드
+        L"clipflash.ico",
+        IMAGE_ICON,
+        32, 32,  // 윈도우 아이콘 크기
+        LR_LOADFROMFILE
+    );
+    
+    // 아이콘 로드 실패 시 NULL 사용 (기본 아이콘)
+    if (!hAppIcon) {
+        hAppIcon = NULL;
+    }
+    
     // 윈도우 클래스 등록
     WNDCLASSW wc = {
-        .lpfnWndProc   = WndProc,
-        .hInstance     = hInst,
+        .lpfnWndProc = WndProc,
+        .hInstance = hInst,
         .lpszClassName = WINDOW_CLASS_NAME,
-        .hbrBackground = CreateSolidBrush(RGB(255,255,255)),
-        .hCursor       = LoadCursor(NULL, IDC_ARROW)
+        .hbrBackground = CreateSolidBrush(RGB(255, 255, 255)),
+        .hCursor = LoadCursor(NULL, IDC_ARROW),
+        .hIcon = hAppIcon  // 커스텀 아이콘 설정
     };
     RegisterClassW(&wc);
 
     // 히든 윈도우 + 트레이 아이콘
     HWND hWnd = CreateWindowExW(
         0, WINDOW_CLASS_NAME, L"Main",
-        0,0,0,0,0,
+        0, 0, 0, 0, 0,
         NULL, NULL, hInst, NULL
     );
     AddTrayIcon(hWnd);
