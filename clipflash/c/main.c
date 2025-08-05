@@ -21,10 +21,16 @@
 
 WCHAR *lastText = NULL;
 HWND   hPopupWnd = NULL;
+HWND   hMainWnd = NULL;  // 메인 윈도우 핸들 추가
 WCHAR  currentMessage[8192] = L"";
 HFONT  hFont = NULL;
 NOTIFYICONDATA nid = {0};
 static BOOL paused = FALSE;  // 일시정지 상태 플래그
+
+// 리소스 관리를 위한 전역 변수들
+static HICON hAppIcon = NULL;
+static HICON hTrayIcon = NULL;
+static HBRUSH hBackgroundBrush = NULL;
 
 // 민감 정보 감지: URL 예외, 길이 6~64, 공백/제어문자 없음,
 // 숫자·영문·특수문자 중 2가지 이상 조합, per-char 엔트로피 ≥ 3.0bits
@@ -85,6 +91,41 @@ static BOOL IsSensitive(const WCHAR *text)
     return bitsPerChar >= 3.0;
 }
 
+// 모든 리소스 정리 함수
+void CleanupAllResources(void)
+{
+    // 트레이 아이콘 정리
+    Shell_NotifyIcon(NIM_DELETE, &nid);
+    
+    // 동적 메모리 해제
+    if (lastText) {
+        free(lastText);
+        lastText = NULL;
+    }
+    
+    // GDI 객체 해제
+    if (hFont) {
+        DeleteObject(hFont);
+        hFont = NULL;
+    }
+    
+    if (hBackgroundBrush) {
+        DeleteObject(hBackgroundBrush);
+        hBackgroundBrush = NULL;
+    }
+    
+    // 아이콘 해제
+    if (hAppIcon) {
+        DestroyIcon(hAppIcon);
+        hAppIcon = NULL;
+    }
+    
+    if (hTrayIcon) {
+        DestroyIcon(hTrayIcon);
+        hTrayIcon = NULL;
+    }
+}
+
 void CleanupTrayIcon(void)
 {
     Shell_NotifyIcon(NIM_DELETE, &nid);
@@ -112,11 +153,12 @@ void ShowPopup(HWND hOwner, const WCHAR *text)
 
     // 텍스트 크기 측정
     HDC hdc = GetDC(NULL);
-    SelectObject(hdc, hFont);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);  // 원래 폰트 저장
     RECT rc = {0, 0, 400, 0};
     DrawTextW(hdc, currentMessage, -1, &rc, DT_CALCRECT | DT_WORDBREAK);
     int w = min(rc.right + 20, 400);
     int h = min(rc.bottom + 20, 300);
+    SelectObject(hdc, hOldFont);  // 원래 폰트 복원
     ReleaseDC(NULL, hdc);
 
     // ShowPopup 내 위치 계산 부분 수정
@@ -163,7 +205,7 @@ void ShowPopup(HWND hOwner, const WCHAR *text)
 void AddTrayIcon(HWND hwnd)
 {
     // 커스텀 아이콘 로드 시도
-    HICON hIcon = (HICON)LoadImageW(
+    hTrayIcon = (HICON)LoadImageW(
         NULL,  // 파일 시스템에서 직접 로드
         L"clipflash.ico",
         IMAGE_ICON,
@@ -172,8 +214,8 @@ void AddTrayIcon(HWND hwnd)
     );
     
     // 아이콘 로드 실패 시 기본 아이콘 사용
-    if (!hIcon) {
-        hIcon = LoadIcon(NULL, IDI_INFORMATION);
+    if (!hTrayIcon) {
+        hTrayIcon = LoadIcon(NULL, IDI_INFORMATION);
     }
     
     nid.cbSize = sizeof(nid);
@@ -181,7 +223,7 @@ void AddTrayIcon(HWND hwnd)
     nid.uID = TRAY_ICON_UID;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_TRAYICON;
-    nid.hIcon = hIcon;
+    nid.hIcon = hTrayIcon;
     wcscpy(nid.szTip, L"Clipflash");
     Shell_NotifyIcon(NIM_ADD, &nid);
 }
@@ -218,8 +260,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                         }
                         size_t len = (wcslen(clipText) + 1) * sizeof(WCHAR);
                         lastText = malloc(len);
-                        memcpy(lastText, clipText, len);
-                        ShowPopup(hwnd, displayText);
+                        if (lastText) {  // malloc 성공 확인
+                            memcpy(lastText, clipText, len);
+                            ShowPopup(hwnd, displayText);
+                        }
                     }
                     GlobalUnlock(hData);
                 }
@@ -252,7 +296,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 pt.x, pt.y, 0, hwnd, NULL);
             DestroyMenu(hMenu);
             if (cmd == ID_TRAY_EXIT) {
-                CleanupTrayIcon();
+                CleanupAllResources();  // 통합 정리 함수 호출
+                if (hMainWnd) {
+                    DestroyWindow(hMainWnd);  // 메인 윈도우 파괴
+                }
                 PostQuitMessage(0);
             } else if (cmd == ID_TRAY_TOGGLE_PAUSE) {
                 paused = !paused;
@@ -267,11 +314,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         HDC hdc = BeginPaint(hwnd, &ps);
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, RGB(30, 30, 30));
-        SelectObject(hdc, hFont);
+        HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);  // 원래 폰트 저장
         RECT rc;
         GetClientRect(hwnd, &rc);
         InflateRect(&rc, -10, -10);
         DrawTextW(hdc, currentMessage, -1, &rc, DT_WORDBREAK | DT_LEFT | DT_TOP);
+        SelectObject(hdc, hOldFont);  // 원래 폰트 복원
         EndPaint(hwnd, &ps);
         break;
     }
@@ -289,7 +337,7 @@ int WINAPI wWinMain(
 )
 {
     // 커스텀 아이콘 로드
-    HICON hAppIcon = (HICON)LoadImageW(
+    hAppIcon = (HICON)LoadImageW(
         NULL,  // 파일 시스템에서 직접 로드
         L"clipflash.ico",
         IMAGE_ICON,
@@ -302,12 +350,15 @@ int WINAPI wWinMain(
         hAppIcon = NULL;
     }
     
+    // 백그라운드 브러시 생성
+    hBackgroundBrush = CreateSolidBrush(RGB(255, 255, 255));
+    
     // 윈도우 클래스 등록
     WNDCLASSW wc = {
         .lpfnWndProc = WndProc,
         .hInstance = hInst,
         .lpszClassName = WINDOW_CLASS_NAME,
-        .hbrBackground = CreateSolidBrush(RGB(255, 255, 255)),
+        .hbrBackground = hBackgroundBrush,
         .hCursor = LoadCursor(NULL, IDC_ARROW),
         .hIcon = hAppIcon  // 커스텀 아이콘 설정
     };
@@ -319,6 +370,7 @@ int WINAPI wWinMain(
         0, 0, 0, 0, 0,
         NULL, NULL, hInst, NULL
     );
+    hMainWnd = hWnd;  // 메인 윈도우 핸들 저장
     AddTrayIcon(hWnd);
 
     // 클립보드 업데이트 이벤트 수신 등록
@@ -331,9 +383,9 @@ int WINAPI wWinMain(
         DispatchMessage(&msg);
     }
 
-    // 종료 전 정리
+    // 종료 전 정리 (추가 안전장치)
     RemoveClipboardFormatListener(hWnd);
-    CleanupTrayIcon();
-    free(lastText);
+    CleanupAllResources();
+    
     return 0;
 }
