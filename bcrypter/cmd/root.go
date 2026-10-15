@@ -4,6 +4,7 @@ Copyright © 2023 w00j00ng351@gmail.com
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"syscall"
@@ -18,18 +19,20 @@ var onClipboard bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "bcrypter",
-	Short: "A simple CLI tool to hash passwords using bcrypt",
-	Long: `bcrypter is a command-line tool that allows you to hash passwords using the bcrypt algorithm.`,
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Use:           "bcrypter",
+	Short:         "A simple CLI tool to hash passwords using bcrypt",
+	Long:          `bcrypter is a command-line tool that allows you to hash passwords using the bcrypt algorithm.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print("Enter Password: ")
 		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-    	if err != nil {
-        	fmt.Printf("\r%s", err.Error())
+		if err != nil {
+			fmt.Printf("\r%s", err.Error())
 			os.Exit(1)
-    	}
+		}
 		bcryptPassword, err := bcrypt.GenerateFromPassword(bytePassword, bcrypt.DefaultCost)
 		if err != nil {
 			fmt.Printf("\r%s", err.Error())
@@ -41,7 +44,7 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			clipboard.Write(clipboard.FmtText, bcryptPassword)
-			fmt.Printf("\rcopied on the clipboard!",)
+			fmt.Printf("\rcopied on the clipboard!")
 		} else {
 			fmt.Printf("\r%s", string(bcryptPassword))
 		}
@@ -53,7 +56,11 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		os.Exit(1)
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
 	}
 }
 
