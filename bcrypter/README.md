@@ -35,3 +35,44 @@ Enter Password:
 $ bcrypter --clipboard=true
 copied on the clipboard!
 ```
+
+## Verify a password
+
+```sh
+bcrypter verify --hash '<bcrypt-hash>'
+Enter Password:
+Password is valid.
+```
+
+Omit `--hash` to enter the hash at a prompt. Password prompts do not echo input.
+For scripted checks, use `--password` (or `-p`):
+
+```sh
+bcrypter verify --hash '<bcrypt-hash>' --password 'example-password'
+```
+
+Quote hashes with single quotes in shells such as PowerShell to preserve `$`.
+Prefer the password prompt for sensitive passwords: command-line passwords may
+appear in shell history or process listings. Explicit `--password=''` verifies
+an empty password; omitting the flag requests a prompt. Passwords are compared
+without trimming or Unicode normalization. bcrypt passwords are limited to
+72 bytes, including multi-byte UTF-8 characters.
+
+Verification writes `Password is valid.` or `Password does not match.` to stdout.
+Malformed hashes and input errors are reported on stderr.
+
+| Verify exit code | Meaning |
+| --- | --- |
+| `0` | Password matches |
+| `1` | Password does not match |
+| `2` | Invalid input, malformed hash, or execution error |
+
+## Development
+
+Run from this module's directory:
+
+```sh
+go test ./...
+go vet ./...
+go build .
+```

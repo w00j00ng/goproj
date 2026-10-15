@@ -34,4 +34,5 @@ go.work.sum
 # bin
 jumin/jumin
 bcrypter/bcrypter
+scrypter/scrypter
 helloworld/helloworld
