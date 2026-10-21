@@ -47,15 +47,12 @@ func TestCLI(t *testing.T) {
 		{"help", nil, "", 0, "decode", ""},
 		{"command help", []string{"help", "decode"}, "", 0, "--token", ""},
 		{"unknown help topic", []string{"help", "sensitive-bad-token"}, "", 2, "", "unknown help topic"},
-		{"positional body", []string{"decode", raw}, "", 0, `"sub": "user-123"`, ""},
-		{"token flag body", []string{"decode", "--token", raw}, "", 0, `"sub": "user-123"`, ""},
-		{"decode details without verification", []string{"decode", raw, "--details"}, "", 0, `"valid": null`, ""},
-		{"verified body", []string{"decode", raw, "--secret", secret}, "", 0, `"sub": "user-123"`, ""},
-		{"verified details", []string{"decode", raw, "--secret", secret, "--details"}, "", 0, `"valid": true`, ""},
-		{"wrong secret body", []string{"decode", raw, "--secret", "wrong-secret"}, "", 1, `"sub": "user-123"`, ""},
-		{"wrong secret details", []string{"decode", "--token", raw, "--secret", "wrong-secret", "--details"}, "", 1, `"signature_invalid"`, ""},
-		{"expired body", []string{"decode", sign(`{"exp":1}`), "--secret", secret}, "", 1, `"exp": 1`, ""},
-		{"expired details", []string{"decode", "--token", sign(`{"exp":1}`), "--secret", secret, "--details"}, "", 1, `"token_expired"`, ""},
+		{"positional token", []string{"decode", raw}, "", 0, `"valid": null`, ""},
+		{"token flag", []string{"decode", "--token", raw}, "", 0, `"valid": null`, ""},
+		{"verified token", []string{"decode", raw, "--secret", secret}, "", 0, `"valid": true`, ""},
+		{"wrong secret", []string{"decode", "--token", raw, "--secret", "wrong-secret"}, "", 1, `"signature_invalid"`, ""},
+		{"expired token", []string{"decode", "--token", sign(`{"exp":1}`), "--secret", secret}, "", 1, `"token_expired"`, ""},
+		{"removed details flag", []string{"decode", raw, "--details"}, "", 2, "", "invalid flags"},
 		{"wrong algorithm", []string{"decode", "--token", raw, "--alg", "ES256", "--secret", secret}, "", 2, "", ""},
 		{"malformed", []string{"decode", "--token", "sensitive-bad-token", "--secret", secret}, "", 2, "", ""},
 		{"missing token", []string{"decode"}, "", 2, "", "provide exactly one"},
@@ -92,6 +89,19 @@ func TestCLI(t *testing.T) {
 			if strings.Contains(stderr.String(), secret) || strings.Contains(stderr.String(), "sensitive-bad-token") {
 				t.Fatalf("error exposed sensitive input: %q", stderr.String())
 			}
+			if len(tt.args) > 0 && tt.args[0] == "decode" && tt.code != 2 {
+				var result struct {
+					Header     map[string]any `json:"header"`
+					Payload    map[string]any `json:"payload"`
+					Validation map[string]any `json:"validation"`
+				}
+				if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+					t.Fatal(err)
+				}
+				if result.Header["alg"] != "HS256" || result.Header["typ"] != "JWT" || result.Payload == nil || result.Validation == nil {
+					t.Fatalf("decode must include header, payload and validation: %s", stdout.String())
+				}
+			}
 		})
 	}
 
@@ -121,28 +131,37 @@ func TestCLI(t *testing.T) {
 		t.Fatalf("encode ES256: %v: %s", err, encoded)
 	}
 	for _, tt := range []struct {
-		name    string
-		args    []string
-		details bool
+		name     string
+		args     []string
+		verified bool
 	}{
-		{"ES256 body without key", []string{"decode", strings.TrimSpace(string(encoded))}, false},
-		{"ES256 verified body", []string{"decode", strings.TrimSpace(string(encoded)), "--key-file", publicFile}, false},
-		{"ES256 verified details", []string{"decode", strings.TrimSpace(string(encoded)), "--key-file", publicFile, "--details"}, true},
+		{"ES256 without key", []string{"decode", strings.TrimSpace(string(encoded))}, false},
+		{"ES256 verified token", []string{"decode", strings.TrimSpace(string(encoded)), "--key-file", publicFile}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			decoded, err := exec.Command(binary, tt.args...).CombinedOutput()
 			if err != nil {
 				t.Fatalf("decode ES256: %v: %s", err, decoded)
 			}
-			if tt.details {
-				if !bytes.Contains(decoded, []byte(`"valid": true`)) || !bytes.Contains(decoded, []byte(`"sub": "es256-user"`)) {
-					t.Fatalf("unexpected ES256 details: %s", decoded)
-				}
-				return
+			var result struct {
+				Header     map[string]any  `json:"header"`
+				Payload    json.RawMessage `json:"payload"`
+				Validation *struct {
+					Valid *bool `json:"valid"`
+				} `json:"validation"`
+			}
+			if err := json.Unmarshal(decoded, &result); err != nil {
+				t.Fatal(err)
+			}
+			if result.Header["alg"] != "ES256" || result.Header["typ"] != "JWT" || result.Validation == nil {
+				t.Fatalf("decode must include ES256 JWT header and validation: %s", decoded)
 			}
 			var compact bytes.Buffer
-			if err := json.Compact(&compact, decoded); err != nil || compact.String() != `{"sub":"es256-user"}` {
-				t.Fatalf("output=%q; want ES256 body only", decoded)
+			if err := json.Compact(&compact, result.Payload); err != nil || compact.String() != `{"sub":"es256-user"}` {
+				t.Fatalf("payload=%s; want original ES256 body", result.Payload)
+			}
+			if (result.Validation.Valid != nil) != tt.verified || tt.verified && !*result.Validation.Valid {
+				t.Fatalf("valid=%v; verified=%v", result.Validation.Valid, tt.verified)
 			}
 		})
 	}

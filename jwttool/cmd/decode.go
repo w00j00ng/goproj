@@ -12,7 +12,6 @@ import (
 
 func newDecodeCommand() *cobra.Command {
 	var algorithm string
-	var details bool
 	var key keyInput
 	command := &cobra.Command{
 		Use:   "decode [token]",
@@ -50,11 +49,7 @@ func newDecodeCommand() *cobra.Command {
 			}
 			encoder := json.NewEncoder(command.OutOrStdout())
 			encoder.SetIndent("", "  ")
-			var output any = result.Payload
-			if details {
-				output = result
-			}
-			if err := encoder.Encode(output); err != nil {
+			if err := encoder.Encode(result); err != nil {
 				return err
 			}
 			return validationErr
@@ -62,7 +57,6 @@ func newDecodeCommand() *cobra.Command {
 	}
 	command.Flags().String("token", "", "compact JWT to inspect")
 	command.Flags().String("token-file", "", "JWT file, or - for stdin")
-	command.Flags().BoolVar(&details, "details", false, "include header and validation status with the payload")
 	command.Flags().StringVar(&algorithm, "alg", "", "expected algorithm: "+strings.Join(token.SupportedAlgorithms(), ", ")+" (default: read header)")
 	key.addFlags(command)
 	return command

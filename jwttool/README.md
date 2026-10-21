@@ -15,9 +15,8 @@ go install .
 
 ```powershell
 jwttool decode "$token"
-jwttool decode "$token" --details
-jwttool decode "$token" --alg HS256 --secret-env JWT_SECRET --details
-jwttool decode "$token" --alg ES256 --key-file .\public.pem --details
+jwttool decode "$token" --alg HS256 --secret-env JWT_SECRET
+jwttool decode "$token" --alg ES256 --key-file .\public.pem
 jwttool decode --token "$token"
 Get-Content -Raw .\token.txt | jwttool decode --token-file -
 ```
@@ -28,16 +27,10 @@ values are identical. The file name `-` reads stdin.
 Outer whitespace is removed. Omitting `--alg` reads the header's `alg`; specifying
 it requires a match. No algorithms are tried in sequence.
 
-Without a key, the command only inspects the token, including tokens using other
-algorithms or `none`. By default, every input form returns only the body JSON:
-
-```json
-{
-  "sub": "user-123"
-}
-```
-
-Add `--details` to include the header, body in `payload`, and validation status:
+Every input form returns the original header, body in `payload`, and validation
+status. The header includes `alg` and `typ` when present; absent fields are not
+added. Without a key, the command only inspects the token, including tokens using
+other algorithms or `none`, and explicitly reports that validation was not checked:
 
 ```json
 {
@@ -60,11 +53,10 @@ back to inspection.
 Verification checks the signature first, then `exp` and `nbf` when present.
 Expiration at the current time fails; `nbf` at the current time passes. There is
 no clock leeway. Missing time claims are allowed, invalid numeric types fail,
-and `iat` is displayed without checking its age. With `--details`, `valid` becomes
-`true` only when these checks pass. Signature or claim failures still return
-the body and exit code 1, including without `--details`. Add `--details` for
-`valid: false` and the reason in `errors`. Claims stay `not_checked` when the
-signature fails.
+and `iat` is displayed without checking its age. `valid` becomes `true` only when
+these checks pass. Signature or claim failures still return the header and body
+with `valid: false`, the reason in `errors`, and exit code 1. Claims stay
+`not_checked` when the signature fails.
 
 This local result does not check issuer/audience policy, revocation, account
 status, or application permissions.
@@ -109,7 +101,7 @@ token contents, secrets, or key material.
 | 1 | Token signature, allowed algorithm, or time-claim verification failed |
 | 2 | Invalid input, malformed token, key error, or execution error |
 
-Inspection without a key returns exit 0; `--details` shows `valid: null`, not `true`.
+Inspection without a key returns exit 0 and shows `valid: null`, not `true`.
 An explicit unsupported `--alg` or a key/algorithm input mismatch is an input
 error. A token header incompatible with the supplied verification key fails
 verification.

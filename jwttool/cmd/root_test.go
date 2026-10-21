@@ -31,26 +31,19 @@ func TestCommands(t *testing.T) {
 		}
 	}
 	for _, tt := range []struct {
-		name    string
-		args    []string
-		stdin   string
-		valid   *bool
-		encode  bool
-		details bool
+		name   string
+		args   []string
+		stdin  string
+		valid  *bool
+		encode bool
 	}{
 		{name: "positional token", args: []string{"decode", raw}},
-		{name: "positional details", args: []string{"decode", raw, "--details"}, details: true},
-		{name: "details before positional token", args: []string{"decode", "--details", raw}, details: true},
-		{name: "explicit body output", args: []string{"decode", raw, "--details=false"}},
-		{name: "positional verified body", args: []string{"decode", raw, "--secret", secret}},
+		{name: "positional verified token", args: []string{"decode", raw, "--secret", secret}, valid: boolPointer(true)},
 		{name: "inspect token flag", args: []string{"decode", "--token", raw}},
-		{name: "token flag details", args: []string{"decode", "--token", raw, "--details"}, details: true},
 		{name: "verify secret", args: []string{"decode", "--token", raw, "--secret", secret}, valid: boolPointer(true)},
-		{name: "verify environment details", args: []string{"decode", raw, "--alg", "HS256", "--secret-env", "JWTTOOL_TEST_SECRET", "--details"}, valid: boolPointer(true), details: true},
+		{name: "verify environment", args: []string{"decode", raw, "--alg", "HS256", "--secret-env", "JWTTOOL_TEST_SECRET"}, valid: boolPointer(true)},
 		{name: "token file", args: []string{"decode", "--token-file", tokenFile}},
-		{name: "token file details", args: []string{"decode", "--token-file", tokenFile, "--details"}, details: true},
 		{name: "token stdin", args: []string{"decode", "--token-file", "-"}, stdin: "\n" + raw + "\n"},
-		{name: "token stdin details", args: []string{"decode", "--token-file", "-", "--details"}, stdin: raw, details: true},
 		{name: "encode body", args: []string{"encode", "--body", body, "--alg", "HS256", "--secret", secret}, encode: true},
 		{name: "encode file", args: []string{"encode", "--body-file", bodyFile, "--alg", "HS256", "--secret-env", "JWTTOOL_TEST_SECRET"}, encode: true},
 		{name: "encode stdin", args: []string{"encode", "--body-file", "-", "--alg", "HS256", "--secret", secret}, stdin: body, encode: true},
@@ -74,29 +67,35 @@ func TestCommands(t *testing.T) {
 				}
 				return
 			}
-			if !tt.details {
-				var compact bytes.Buffer
-				if err := json.Compact(&compact, stdout.Bytes()); err != nil || compact.String() != body {
-					t.Fatalf("output=%q; want body only %s", stdout.String(), body)
-				}
-				return
-			}
 			var result struct {
 				Header     map[string]any  `json:"header"`
 				Payload    json.RawMessage `json:"payload"`
-				Validation struct {
-					Valid *bool `json:"valid"`
+				Validation *struct {
+					Signature string   `json:"signature"`
+					Claims    string   `json:"claims"`
+					Valid     *bool    `json:"valid"`
+					Errors    []string `json:"errors"`
 				} `json:"validation"`
 			}
 			if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
 				t.Fatalf("invalid JSON output: %v: %s", err, stdout.String())
 			}
-			if result.Header["alg"] != "HS256" {
-				t.Fatalf("header=%v; want HS256 header", result.Header)
+			if result.Header["alg"] != "HS256" || result.Header["typ"] != "JWT" {
+				t.Fatalf("header=%v; want HS256 JWT header", result.Header)
 			}
 			var compact bytes.Buffer
 			if err := json.Compact(&compact, result.Payload); err != nil || compact.String() != body {
 				t.Fatalf("payload=%s; want %s", result.Payload, body)
+			}
+			if result.Validation == nil {
+				t.Fatal("output is missing validation status")
+			}
+			wantStatus := "not_checked"
+			if tt.valid != nil {
+				wantStatus = "valid"
+			}
+			if result.Validation.Signature != wantStatus || result.Validation.Claims != wantStatus || result.Validation.Errors == nil || len(result.Validation.Errors) != 0 {
+				t.Fatalf("validation=%+v; want signature and claims %s with empty errors", result.Validation, wantStatus)
 			}
 			if (result.Validation.Valid == nil) != (tt.valid == nil) || tt.valid != nil && *result.Validation.Valid != *tt.valid {
 				t.Fatalf("valid=%v; want %v", result.Validation.Valid, tt.valid)
@@ -128,6 +127,8 @@ func TestInputErrors(t *testing.T) {
 		{"key and secret", []string{"decode", "--token", "token", "--secret", "sensitive-secret", "--key-file", "missing.pem"}, "choose only one key input"},
 		{"missing file", []string{"decode", "--token-file", "does-not-exist.txt"}, "read token file"},
 		{"unknown flag", []string{"decode", "--unknown"}, "invalid flags"},
+		{"removed details flag", []string{"decode", "sensitive-token", "--details"}, "invalid flags"},
+		{"removed details false flag", []string{"decode", "sensitive-token", "--details=false"}, "invalid flags"},
 		{"multiple positional tokens", []string{"decode", "sensitive-token", "sensitive-secret"}, "provide exactly one token input"},
 		{"unexpected root argument", []string{"sensitive-token"}, "unexpected positional arguments"},
 		{"unknown help topic", []string{"help", "sensitive-token"}, "unknown help topic"},
@@ -162,6 +163,9 @@ func TestAlgorithmHelp(t *testing.T) {
 		}
 		if !strings.Contains(output.String(), "HS256, ES256") {
 			t.Fatalf("help does not show enabled algorithms: %s", output.String())
+		}
+		if strings.Contains(output.String(), "--details") {
+			t.Fatalf("help advertises removed flag: %s", output.String())
 		}
 	}
 }
