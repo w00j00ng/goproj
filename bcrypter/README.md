@@ -76,3 +76,28 @@ go test ./...
 go vet ./...
 go build .
 ```
+
+## Clipboard support
+
+`--clipboard` is optional. Windows uses its native clipboard API and does not
+require CGO. Linux requires CGO, a C compiler, X11 development headers (such as
+`libx11-dev` on Debian/Ubuntu), and an accessible X11 display. macOS requires
+CGO and its platform compiler/frameworks.
+
+With `CGO_ENABLED=0` on Linux/macOS, hashing and verification still work;
+`--clipboard` returns an explicit error instead of panicking. Other operating
+systems do not have a clipboard implementation in this tool. Clipboard
+initialization/write failures return an error and never report a successful copy.
+Clipboard persistence after the program exits depends on the desktop environment
+and clipboard manager, especially on X11.
+
+## Generation output and accepted hash formats
+
+Generation prints only the hash followed by a newline to stdout. The password
+prompt, clipboard confirmation and errors use stderr. Generation exits 0 on
+success and 2 on input, hashing or clipboard errors. Verification retains its
+0/1/2 success/mismatch/error contract.
+
+Verification supports only bcrypt prefixes `$2a$`, `$2b$` and `$2y$`.
+Legacy `$2$`, `$2x$`, uppercase and unknown minor prefixes are rejected as
+invalid input. The unused `--toggle` option has been removed.

@@ -1,31 +1,47 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
 func main() {
-	// gender 플래그 정의 (기본값 "male")
-	gender := flag.String("gender", "male", "성별 지정: male 혹은 female")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
 
-	// 남은 인자에서 생년월일을 가져옴
-	if flag.NArg() < 1 {
-		fmt.Println("Usage: ./main.out [--gender=male|female] YYYY-MM-DD")
-		return
+func run(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("jumin", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.Usage = func() {
+		fmt.Fprintln(stderr, "Usage: jumin [--gender=male|female] YYYY-MM-DD")
+		flags.PrintDefaults()
 	}
-
-	inputDate := flag.Arg(0)
-	// 날짜 파싱: layout은 "2006-01-02" 형식
-	t, err := time.Parse("2006-01-02", inputDate)
+	gender := flags.String("gender", "male", "성별: male/m/man 또는 female/f/woman (날짜 앞에 지정)")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	if flags.NArg() != 1 {
+		fmt.Fprintln(stderr, "expected exactly one date; place options before YYYY-MM-DD")
+		return 2
+	}
+	t, err := time.Parse("2006-01-02", flags.Arg(0))
 	if err != nil {
-		fmt.Println("Invalid date format. Use YYYY-MM-DD")
-		return
+		fmt.Fprintln(stderr, "invalid date: use YYYY-MM-DD")
+		return 2
+	}
+	if t.Year() < 1900 || t.Year() > 2099 {
+		fmt.Fprintln(stderr, "supported years: 1900 through 2099")
+		return 2
 	}
 
 	// 생년월일을 YYMMDD 형식으로 변환
@@ -34,25 +50,17 @@ func main() {
 	// 랜덤 시드 초기화
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	// 성별에 따른 주민등록번호 뒷자리 첫번째 숫자 결정
 	genderDigit := 1
-	if gender != nil {
-		switch strings.ToLower(*gender) {
-		case "male", "m", "man":
-			if t.Year() < 2000 {
-				genderDigit = 1 // 1900년대 남성
-			} else {
-				genderDigit = 3 // 2000년대 남성
-			}
-		case "female", "f", "woman":
-			if t.Year() < 2000 {
-				genderDigit = 2 // 1900년대 여성
-			} else {
-				genderDigit = 4 // 2000년대 여성
-			}
-		default:
-			genderDigit = 1 // 1900년대 남성
-		}
+	switch strings.ToLower(*gender) {
+	case "male", "m", "man":
+	case "female", "f", "woman":
+		genderDigit = 2
+	default:
+		fmt.Fprintln(stderr, "invalid gender: use male/m/man or female/f/woman")
+		return 2
+	}
+	if t.Year() >= 2000 {
+		genderDigit += 2
 	}
 
 	// 뒷자리 첫번째 숫자 설정 후, 나머지 5자리 임의 숫자 생성
@@ -77,5 +85,6 @@ func main() {
 	// 최종 주민등록번호 생성 ("YYMMDD-XXXXXXX")
 	fullSecondPart := secondPartDigits + strconv.Itoa(checkDigit)
 	rrn := firstPart + "-" + fullSecondPart
-	fmt.Println(rrn)
+	fmt.Fprintln(stdout, rrn)
+	return 0
 }

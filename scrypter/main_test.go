@@ -26,6 +26,7 @@ func TestVerify(t *testing.T) {
 		stdout string
 		stderr string
 	}{
+		{"unsupported combining sequence", []string{"verify", "--hash", stored, "-p", "a" + strings.Repeat("\u0301", 40)}, 2, "", "unsupported password normalization"},
 		{"matching flags", []string{"verify", "--hash", stored, "--password", "example-password"}, 0, "Password is valid.\n", ""},
 		{"different password", []string{"verify", "--hash", stored, "-p", "wrong-password"}, 1, "Password does not match.\n", ""},
 		{"malformed hash", []string{"verify", "--hash", "invalid", "-p", "example-password"}, 2, "", "invalid scrypt hash"},

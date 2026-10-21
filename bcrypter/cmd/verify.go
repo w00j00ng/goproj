@@ -7,14 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/term"
 )
 
-var bcryptHashPattern = regexp.MustCompile(`^\$2[A-Za-z]?\$[0-9]{2}\$[./A-Za-z0-9]{53}$`)
+var bcryptHashPattern = regexp.MustCompile(`^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$`)
 
 func newVerifyCommand(readPassword func() ([]byte, error)) *cobra.Command {
 	var hash, password string
@@ -62,10 +60,4 @@ func newVerifyCommand(readPassword func() ([]byte, error)) *cobra.Command {
 	command.Flags().StringVar(&hash, "hash", "", "bcrypt hash to verify against")
 	command.Flags().StringVarP(&password, "password", "p", "", "password to verify")
 	return command
-}
-
-func init() {
-	rootCmd.AddCommand(newVerifyCommand(func() ([]byte, error) {
-		return term.ReadPassword(int(syscall.Stdin))
-	}))
 }

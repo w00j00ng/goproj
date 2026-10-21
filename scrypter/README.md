@@ -1,7 +1,7 @@
 # Scrypter
 
-Generate and verify password hashes compatible with Better Auth's default
-scrypt password implementation.
+Generate and verify password hashes for Better Auth's default scrypt format,
+within the Unicode compatibility limits below.
 
 ## Install from this checkout
 
@@ -66,6 +66,16 @@ key characters. It does not embed parameters or a version.
 | Salt passed to scrypt | The 32-character hex string as UTF-8 text |
 | Password preprocessing | Unicode NFKC normalization, then UTF-8 encoding |
 
+Inputs must be valid UTF-8. Go applies stream-safe NFKC, unlike JavaScript:
+when normalization would insert U+034F (COMBINING GRAPHEME JOINER), both
+generation and verification return an explicit error (CLI exit 2), not a
+password mismatch. For example, `"a" + "\u0301".repeat(40)` is unsupported.
+The limit depends on decomposed non-starters, not simply string length.
+U+034F supplied in the original password is preserved. This is a deliberate
+support limit; full JavaScript normalization for these inputs is not implemented.
+Unicode results also depend on the tables in Go's x/text and the JavaScript
+runtime; this does not promise compatibility with every runtime/Unicode version.
+
 Whitespace is preserved. Verification compares derived keys in constant time.
 Custom Better Auth password functions and other scrypt profiles are unsupported.
 This CLI does not enforce Better Auth's application-level password length policy.
@@ -85,3 +95,22 @@ go build .
 
 The tests cover fixed Node.js scrypt fixtures, Unicode normalization, random
 salts, malformed hashes, prompts, and CLI output and exit codes.
+
+Unicode fixture regeneration: `node password/testdata/generate.mjs`.
+The JSON records Node.js, ICU and Unicode versions; normal tests need only Go.
+
+## Clipboard support
+
+`--clipboard` is optional. Windows uses its native clipboard API and does not
+require CGO. Linux requires CGO, a C compiler, X11 development headers (such as
+`libx11-dev` on Debian/Ubuntu), and an accessible X11 display. macOS requires
+CGO and its platform compiler/frameworks.
+
+With `CGO_ENABLED=0` on Linux/macOS, hashing and verification still work;
+`--clipboard` returns an explicit error instead of panicking. Other operating
+systems do not have a clipboard implementation in this tool. Clipboard
+initialization/write failures return an error and never report a successful copy.
+Clipboard persistence after the program exits depends on the desktop environment
+and clipboard manager, especially on X11.
+
+Building this module requires Go 1.25.0 or newer.
