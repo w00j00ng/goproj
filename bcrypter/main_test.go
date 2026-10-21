@@ -39,6 +39,14 @@ func TestVerify(t *testing.T) {
 		code int
 		want string
 	}{
+		{"unknown minor z", []string{"verify", "--hash", "$2z$" + stored[4:], "-p", password}, 2, "invalid bcrypt hash"},
+		{"unknown minor uppercase", []string{"verify", "--hash", "$2A$" + stored[4:], "-p", password}, 2, "invalid bcrypt hash"},
+		{"unsupported legacy", []string{"verify", "--hash", "$2$" + stored[4:], "-p", password}, 2, "invalid bcrypt hash"},
+		{"unsupported 2x", []string{"verify", "--hash", "$2x$" + stored[4:], "-p", password}, 2, "invalid bcrypt hash"},
+		{"minor 2b", []string{"verify", "--hash", "$2b$" + stored[4:], "-p", password}, 0, "Password is valid.\n"},
+		{"minor 2y", []string{"verify", "--hash", "$2y$" + stored[4:], "-p", password}, 0, "Password is valid.\n"},
+		{"generate without terminal", nil, 2, "read password"},
+		{"removed toggle", []string{"--toggle"}, 2, "unknown flag"},
 		{"matching flags", []string{"verify", "--hash", stored, "--password", password}, 0, "Password is valid.\n"},
 		{"different password", []string{"verify", "--hash", stored, "-p", "wrong-password"}, 1, "Password does not match.\n"},
 		{"malformed hash", []string{"verify", "--hash", "invalid", "-p", password}, 2, "invalid bcrypt hash"},
@@ -74,6 +82,9 @@ func TestVerify(t *testing.T) {
 			}
 			if code != tt.code || !strings.Contains(output, tt.want) {
 				t.Fatalf("exit=%d, output=%q; want exit=%d, output containing %q", code, output, tt.code, tt.want)
+			}
+			if tt.name == "generate without terminal" && (stdout.Len() != 0 || !strings.Contains(stderr.String(), "read password")) {
+				t.Fatalf("generation error leaked to stdout: stdout=%q stderr=%q", stdout.String(), stderr.String())
 			}
 			if tt.code < 2 && (stdout.String() != tt.want || stderr.Len() != 0) {
 				t.Fatalf("stdout=%q, stderr=%q; want result on stdout only", stdout.String(), stderr.String())
