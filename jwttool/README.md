@@ -5,7 +5,13 @@ and ES256. All processing is local.
 
 ## Install
 
-Requires Go 1.21 or later. From this directory:
+Requires Go 1.21 or later:
+
+```sh
+go install github.com/w00j00ng/goproj/jwttool@latest
+```
+
+Or install the current checkout from this directory:
 
 ```sh
 go install .
