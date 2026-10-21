@@ -5,6 +5,14 @@
       "name": "bcrypter"
     },
     {
+      "path": "../scrypter",
+      "name": "scrypter"
+    },
+    {
+      "path": "../jumin",
+      "name": "jumin"
+    },
+    {
       "path": "../helloworld",
       "name": "helloworld"
     },
