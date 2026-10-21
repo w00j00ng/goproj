@@ -8,13 +8,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/w00j00ng/goproj/scrypter/password"
-	"golang.design/x/clipboard"
 	"golang.org/x/term"
 )
 
 var errPasswordMismatch = errors.New("password does not match")
 
-func newRootCommand(readPassword func() ([]byte, error)) *cobra.Command {
+func newRootCommand(readPassword func() ([]byte, error), copyHash func([]byte) error) *cobra.Command {
 	var onClipboard bool
 	command := &cobra.Command{
 		Use:           "scrypter",
@@ -34,10 +33,9 @@ func newRootCommand(readPassword func() ([]byte, error)) *cobra.Command {
 				return err
 			}
 			if onClipboard {
-				if err := clipboard.Init(); err != nil {
-					return fmt.Errorf("initialize clipboard: %w", err)
+				if err := copyHash([]byte(hash)); err != nil {
+					return fmt.Errorf("copy hash: %w", err)
 				}
-				clipboard.Write(clipboard.FmtText, []byte(hash))
 				fmt.Fprintln(cmd.OutOrStdout(), "copied on the clipboard!")
 			} else {
 				fmt.Fprintln(cmd.OutOrStdout(), hash)
@@ -54,7 +52,7 @@ func newRootCommand(readPassword func() ([]byte, error)) *cobra.Command {
 func Execute() {
 	command := newRootCommand(func() ([]byte, error) {
 		return term.ReadPassword(int(syscall.Stdin))
-	})
+	}, writeClipboard)
 	if err := command.Execute(); err != nil {
 		if errors.Is(err, errPasswordMismatch) {
 			os.Exit(1)

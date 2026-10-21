@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/scrypt"
 	"golang.org/x/text/unicode/norm"
@@ -48,6 +49,14 @@ func Verify(stored, plain string) (bool, error) {
 }
 
 func deriveKey(plain, saltHex string) ([]byte, error) {
+	if !utf8.ValidString(plain) {
+		return nil, errors.New("invalid password: expected UTF-8")
+	}
+	normalized := norm.NFKC.String(plain)
+	// shortcut: reject stream-safe insertions until JavaScript-equivalent normalization is available.
+	if strings.Count(normalized, norm.GraphemeJoiner) != strings.Count(plain, norm.GraphemeJoiner) {
+		return nil, errors.New("unsupported password normalization: combining sequence requires a stream-safe joiner")
+	}
 	// Better Auth passes the hex salt as text, rather than decoding it to bytes.
-	return scrypt.Key([]byte(norm.NFKC.String(plain)), []byte(saltHex), 16384, 16, 1, 64)
+	return scrypt.Key([]byte(normalized), []byte(saltHex), 16384, 16, 1, 64)
 }

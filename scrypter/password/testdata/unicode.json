@@ -1,0 +1,58 @@
+{
+  "environment": {
+    "node": "22.14.0",
+    "icu": "76.1",
+    "unicode": "16.0"
+  },
+  "fixtures": [
+    {
+      "name": "30 combining marks",
+      "plain": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "supported": true,
+      "normalized": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "hash": "00112233445566778899aabbccddeeff:4a2726416cf1f170f2d1f1e7ae75ed1cd8d5ccef69b03c412af9bbed78eb90f19139cab84a3c6c14917fde2770d8e86c15b4ba1f8a4aec032de1bbceb1483786"
+    },
+    {
+      "name": "31 combining marks",
+      "plain": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "supported": false,
+      "normalized": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "hash": "00112233445566778899aabbccddeeff:496dd7fe02260b137bcbe453d5a3734428122d231a253408e2e79376bda00339c649220539fdba70121c04410e2f4cde94c53c9f39242dbfbb1028942ca45cc4"
+    },
+    {
+      "name": "40 combining marks",
+      "plain": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "supported": false,
+      "normalized": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "hash": "00112233445566778899aabbccddeeff:43f48e4ce77ab42d8d5d5f338ff8aaa7c3c6df7074f61609e37565d0b95535e9006f5c0c4a8979f7b4032311f05f435032e10f1d62590301df4be10e02b5c67c"
+    },
+    {
+      "name": "original joiner",
+      "plain": "a͏́",
+      "supported": true,
+      "normalized": "a͏́",
+      "hash": "00112233445566778899aabbccddeeff:702460de638ad7ec15ace9bc3c61e535164bf115c48a8cdced329c41a3bdf6ee979861f73dd9867ad3a4dd0ad67a877dba3ac30185e4e9412239a64c2ac4a386"
+    },
+    {
+      "name": "original joiner separates long sequence",
+      "plain": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́͏́́́́́́́́́́",
+      "supported": true,
+      "normalized": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́͏́́́́́́́́́́",
+      "hash": "00112233445566778899aabbccddeeff:5a8bb2fe59330a061cbcdc16beec7d47732b8e3677386b42185e9b6ec7414a8dc5d1babd081f9e7950cc8d9ada92391397c2f0c40b70afd25aa85a8fd33f9253"
+    },
+    {
+      "name": "original joiner does not hide inserted joiner",
+      "plain": "͏á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "supported": false,
+      "normalized": "͏á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "hash": "00112233445566778899aabbccddeeff:70c8aa4070818952b7ff3cc124e46f4cf2a52ae02a0b59a0fc4f7de92b9e808fb8c17990ea5a2170f254c380b52b1afd7802cd85e7d12a2e16f205dba44e951e"
+    },
+    {
+      "name": "decomposition expands combining sequence",
+      "plain": "ä́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́",
+      "supported": false,
+      "normalized": "ä́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́̈́",
+      "hash": "00112233445566778899aabbccddeeff:53946fb8510c6f1f8507f3a5b2ed71ea794765a656c955776a8e2eab7d7c1d76d7bdeaf6e21d16aa1006538ffef907a00f28642e443fd4b102255a9331ac0a2c"
+    }
+  ]
+}

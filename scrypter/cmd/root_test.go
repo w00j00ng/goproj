@@ -36,7 +36,7 @@ func TestVerifyInputs(t *testing.T) {
 				value := tt.inputs[reads]
 				reads++
 				return []byte(value), nil
-			})
+			}, writeClipboard)
 			var output bytes.Buffer
 			command.SetOut(&output)
 			command.SetArgs(tt.args)
@@ -52,7 +52,7 @@ func TestVerifyInputs(t *testing.T) {
 
 func TestHashCommand(t *testing.T) {
 	plain := "example-password"
-	command := newRootCommand(func() ([]byte, error) { return []byte(plain), nil })
+	command := newRootCommand(func() ([]byte, error) { return []byte(plain), nil }, writeClipboard)
 	var output bytes.Buffer
 	command.SetOut(&output)
 	command.SetArgs([]string{})
@@ -81,7 +81,7 @@ func TestReadError(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			readError := errors.New("terminal unavailable")
-			command := newRootCommand(func() ([]byte, error) { return nil, readError })
+			command := newRootCommand(func() ([]byte, error) { return nil, readError }, writeClipboard)
 			var output bytes.Buffer
 			command.SetOut(&output)
 			command.SetErr(&output)
