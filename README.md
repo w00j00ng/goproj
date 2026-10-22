@@ -10,6 +10,7 @@ its own `go.mod`; install and validate each module separately.
 | [helloworld](helloworld/README.md) | Inspect HTTP requests with local defaults and bounded, opt-in body logging | 1.27.3 |
 | [jumin](jumin/README.md) | Generate synthetic resident-number-shaped test values | 1.23.3 |
 | [jwter](jwter/README.md) | Inspect compact JWTs; sign and verify HS256/ES256 tokens | 1.21 |
+| [timetool](timetool/README.md) | Convert Unix seconds/milliseconds, RFC3339, and time zones | 1.27.3 |
 
 ## Install
 
@@ -19,6 +20,7 @@ go install github.com/w00j00ng/goproj/scrypter@latest
 go install github.com/w00j00ng/goproj/helloworld@latest
 go install github.com/w00j00ng/goproj/jumin@latest
 go install github.com/w00j00ng/goproj/jwter@latest
+go install github.com/w00j00ng/goproj/timetool@latest
 ```
 
 To try changes in a local checkout before publication, run `go install .`
@@ -50,7 +52,7 @@ issuer/audience policy, revocation, or application permissions. See the
 ## Verify from a checkout
 
 Run these commands inside **each** of `bcrypter`, `scrypter`, `helloworld`,
-`jumin`, and `jwter` (there is no root Go module):
+`jumin`, `jwter`, and `timetool` (there is no root Go module):
 
 ```sh
 go test -mod=readonly -count=1 -timeout=2m ./...
