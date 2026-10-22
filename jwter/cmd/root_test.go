@@ -21,7 +21,7 @@ func TestCommands(t *testing.T) {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(unsigned))
 	raw := unsigned + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	t.Setenv("JWTTOOL_TEST_SECRET", secret)
+	t.Setenv("JWTER_TEST_SECRET", secret)
 	dir := t.TempDir()
 	tokenFile := filepath.Join(dir, "token.txt")
 	bodyFile := filepath.Join(dir, "body.json")
@@ -41,11 +41,11 @@ func TestCommands(t *testing.T) {
 		{name: "positional verified token", args: []string{"decode", raw, "--secret", secret}, valid: boolPointer(true)},
 		{name: "inspect token flag", args: []string{"decode", "--token", raw}},
 		{name: "verify secret", args: []string{"decode", "--token", raw, "--secret", secret}, valid: boolPointer(true)},
-		{name: "verify environment", args: []string{"decode", raw, "--alg", "HS256", "--secret-env", "JWTTOOL_TEST_SECRET"}, valid: boolPointer(true)},
+		{name: "verify environment", args: []string{"decode", raw, "--alg", "HS256", "--secret-env", "JWTER_TEST_SECRET"}, valid: boolPointer(true)},
 		{name: "token file", args: []string{"decode", "--token-file", tokenFile}},
 		{name: "token stdin", args: []string{"decode", "--token-file", "-"}, stdin: "\n" + raw + "\n"},
 		{name: "encode body", args: []string{"encode", "--body", body, "--alg", "HS256", "--secret", secret}, encode: true},
-		{name: "encode file", args: []string{"encode", "--body-file", bodyFile, "--alg", "HS256", "--secret-env", "JWTTOOL_TEST_SECRET"}, encode: true},
+		{name: "encode file", args: []string{"encode", "--body-file", bodyFile, "--alg", "HS256", "--secret-env", "JWTER_TEST_SECRET"}, encode: true},
 		{name: "encode stdin", args: []string{"encode", "--body-file", "-", "--alg", "HS256", "--secret", secret}, stdin: body, encode: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestCommands(t *testing.T) {
 func boolPointer(value bool) *bool { return &value }
 
 func TestInputErrors(t *testing.T) {
-	t.Setenv("JWTTOOL_TEST_EMPTY", "")
+	t.Setenv("JWTER_TEST_EMPTY", "")
 	for _, tt := range []struct {
 		name string
 		args []string
@@ -122,8 +122,8 @@ func TestInputErrors(t *testing.T) {
 		{"both body inputs", []string{"encode", "--body", "{}", "--body-file", "-"}, "provide exactly one"},
 		{"missing algorithm", []string{"encode", "--body", "{}", "--secret", "sensitive-secret"}, "--alg is required"},
 		{"empty secret", []string{"decode", "--token", "token", "--secret="}, "secret must not be empty"},
-		{"unset secret environment", []string{"decode", "--token", "token", "--secret-env", "JWTTOOL_TEST_EMPTY"}, "secret environment variable must be set and nonempty"},
-		{"both secret inputs", []string{"decode", "--token", "token", "--secret", "sensitive-secret", "--secret-env", "JWTTOOL_TEST_EMPTY"}, "choose only one key input"},
+		{"unset secret environment", []string{"decode", "--token", "token", "--secret-env", "JWTER_TEST_EMPTY"}, "secret environment variable must be set and nonempty"},
+		{"both secret inputs", []string{"decode", "--token", "token", "--secret", "sensitive-secret", "--secret-env", "JWTER_TEST_EMPTY"}, "choose only one key input"},
 		{"key and secret", []string{"decode", "--token", "token", "--secret", "sensitive-secret", "--key-file", "missing.pem"}, "choose only one key input"},
 		{"missing file", []string{"decode", "--token-file", "does-not-exist.txt"}, "read token file"},
 		{"unknown flag", []string{"decode", "--unknown"}, "invalid flags"},
@@ -153,7 +153,7 @@ func TestInputErrors(t *testing.T) {
 }
 
 func TestAlgorithmHelp(t *testing.T) {
-	for _, args := range [][]string{nil, {"help", "decode"}, {"help", "encode"}} {
+	for _, args := range [][]string{nil, {"help", "decode"}, {"help", "encode"}, {"help", "verify"}} {
 		command := newRootCommand()
 		command.SetArgs(args)
 		var output bytes.Buffer
@@ -163,6 +163,9 @@ func TestAlgorithmHelp(t *testing.T) {
 		}
 		if !strings.Contains(output.String(), "HS256, ES256") {
 			t.Fatalf("help does not show enabled algorithms: %s", output.String())
+		}
+		if !strings.Contains(output.String(), "jwter") {
+			t.Fatalf("help does not show the command name: %s", output.String())
 		}
 		if strings.Contains(output.String(), "--details") {
 			t.Fatalf("help advertises removed flag: %s", output.String())

@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/w00j00ng/goproj/jwttool/token"
+	"github.com/w00j00ng/goproj/jwter/token"
 )
 
 func newRootCommand() *cobra.Command {
 	command := &cobra.Command{
-		Use:           "jwttool",
+		Use:           "jwter",
 		Short:         "Inspect, verify, and sign JWTs using " + strings.Join(token.SupportedAlgorithms(), ", "),
 		Args:          noArguments,
 		SilenceUsage:  true,
@@ -26,14 +26,14 @@ func newRootCommand() *cobra.Command {
 		return errors.New("invalid flags: check names and values with --help")
 	})
 	command.CompletionOptions.DisableDefaultCmd = true
-	command.AddCommand(newDecodeCommand(), newEncodeCommand())
+	command.AddCommand(newDecodeCommand(), newEncodeCommand(), newVerifyCommand())
 	command.SetHelpCommand(&cobra.Command{
 		Use:   "help [command]",
 		Short: "Show help for a command",
 		RunE: func(_ *cobra.Command, args []string) error {
 			target, remaining, err := command.Find(args)
 			if err != nil || len(remaining) != 0 {
-				return errors.New("unknown help topic: use help decode or help encode")
+				return errors.New("unknown help topic: use help decode, help encode, or help verify")
 			}
 			return target.Help()
 		},
@@ -107,7 +107,7 @@ type keyInput struct {
 func (input *keyInput) addFlags(command *cobra.Command) {
 	command.Flags().StringVar(&input.secret, "secret", "", "HMAC secret (prefer --secret-env to avoid shell history)")
 	command.Flags().StringVar(&input.secretEnv, "secret-env", "", "environment variable containing the HMAC secret")
-	command.Flags().StringVar(&input.keyFile, "key-file", "", "PEM key file (private for encode, public for decode)")
+	command.Flags().StringVar(&input.keyFile, "key-file", "", "PEM key file (private for encode, public for decode/verify)")
 }
 
 func (input keyInput) read(command *cobra.Command) (token.Key, error) {

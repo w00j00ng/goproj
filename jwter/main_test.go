@@ -21,7 +21,7 @@ import (
 
 func TestCLI(t *testing.T) {
 	dir := t.TempDir()
-	binary := filepath.Join(dir, "jwttool")
+	binary := filepath.Join(dir, "jwter")
 	if runtime.GOOS == "windows" {
 		binary += ".exe"
 	}
@@ -29,13 +29,16 @@ func TestCLI(t *testing.T) {
 		t.Fatalf("build CLI: %v\n%s", err, output)
 	}
 	const secret = "cli-test-secret"
-	sign := func(body string) string {
+	sign := func(body, signingSecret string) string {
 		unsigned := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`)) + "." + base64.RawURLEncoding.EncodeToString([]byte(body))
-		mac := hmac.New(sha256.New, []byte(secret))
+		mac := hmac.New(sha256.New, []byte(signingSecret))
 		mac.Write([]byte(unsigned))
 		return unsigned + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 	}
-	raw := sign(`{"sub":"user-123"}`)
+	raw := sign(`{"sub":"user-123"}`, secret)
+	verifySecret := strings.Repeat("test", 8)
+	verifyRaw := sign(`{"iss":"issuer","sub":"user-123","aud":"api","iat":1,"exp":4102444800}`, verifySecret)
+	t.Setenv("JWTER_PROCESS_VERIFY_SECRET", verifySecret)
 	for _, tt := range []struct {
 		name   string
 		args   []string
@@ -44,14 +47,21 @@ func TestCLI(t *testing.T) {
 		stdout string
 		stderr string
 	}{
-		{"help", nil, "", 0, "decode", ""},
+		{"help", nil, "", 0, "jwter [command]", ""},
 		{"command help", []string{"help", "decode"}, "", 0, "--token", ""},
 		{"unknown help topic", []string{"help", "sensitive-bad-token"}, "", 2, "", "unknown help topic"},
 		{"positional token", []string{"decode", raw}, "", 0, `"valid": null`, ""},
 		{"token flag", []string{"decode", "--token", raw}, "", 0, `"valid": null`, ""},
 		{"verified token", []string{"decode", raw, "--secret", secret}, "", 0, `"valid": true`, ""},
 		{"wrong secret", []string{"decode", "--token", raw, "--secret", "wrong-secret"}, "", 1, `"signature_invalid"`, ""},
-		{"expired token", []string{"decode", "--token", sign(`{"exp":1}`), "--secret", secret}, "", 1, `"token_expired"`, ""},
+		{"expired token", []string{"decode", "--token", sign(`{"exp":1}`, secret), "--secret", secret}, "", 1, `"token_expired"`, ""},
+		{"verify success", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--iss", "issuer", "--aud", "api", "--typ", "JWT", "--require", "exp"}, "", 0, `"valid": true`, ""},
+		{"verify policy failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--iss", "other"}, "", 1, `"iss_mismatch"`, ""},
+		{"verify weak key", []string{"verify", raw, "--alg", "HS256", "--secret", secret}, "", 1, `"hmac_key_too_short"`, ""},
+		{"verify age failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--max-age", "1h"}, "", 1, `"max_age_exceeded"`, ""},
+		{"verify lifetime failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--max-lifetime", "1h"}, "", 1, `"max_lifetime_exceeded"`, ""},
+		{"verify missing key", []string{"verify", verifyRaw, "--alg", "HS256"}, "", 2, "", "verification key is required"},
+		{"verify missing algorithm", []string{"verify", verifyRaw, "--secret-env", "JWTER_PROCESS_VERIFY_SECRET"}, "", 2, "", "--alg is required"},
 		{"removed details flag", []string{"decode", raw, "--details"}, "", 2, "", "invalid flags"},
 		{"wrong algorithm", []string{"decode", "--token", raw, "--alg", "ES256", "--secret", secret}, "", 2, "", ""},
 		{"malformed", []string{"decode", "--token", "sensitive-bad-token", "--secret", secret}, "", 2, "", ""},
@@ -89,7 +99,7 @@ func TestCLI(t *testing.T) {
 			if strings.Contains(stderr.String(), secret) || strings.Contains(stderr.String(), "sensitive-bad-token") {
 				t.Fatalf("error exposed sensitive input: %q", stderr.String())
 			}
-			if len(tt.args) > 0 && tt.args[0] == "decode" && tt.code != 2 {
+			if len(tt.args) > 0 && (tt.args[0] == "decode" || tt.args[0] == "verify") && tt.code != 2 {
 				var result struct {
 					Header     map[string]any `json:"header"`
 					Payload    map[string]any `json:"payload"`
@@ -100,6 +110,9 @@ func TestCLI(t *testing.T) {
 				}
 				if result.Header["alg"] != "HS256" || result.Header["typ"] != "JWT" || result.Payload == nil || result.Validation == nil {
 					t.Fatalf("decode must include header, payload and validation: %s", stdout.String())
+				}
+				if tt.args[0] == "verify" && result.Validation["valid"] != (tt.code == 0) {
+					t.Fatalf("verify validity does not match exit code: %s", stdout.String())
 				}
 			}
 		})
@@ -137,6 +150,7 @@ func TestCLI(t *testing.T) {
 	}{
 		{"ES256 without key", []string{"decode", strings.TrimSpace(string(encoded))}, false},
 		{"ES256 verified token", []string{"decode", strings.TrimSpace(string(encoded)), "--key-file", publicFile}, true},
+		{"ES256 verify policy", []string{"verify", strings.TrimSpace(string(encoded)), "--alg", "ES256", "--key-file", publicFile, "--sub", "es256-user", "--typ", "JWT"}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			decoded, err := exec.Command(binary, tt.args...).CombinedOutput()
