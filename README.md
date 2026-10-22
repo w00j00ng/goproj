@@ -11,6 +11,7 @@ its own `go.mod`; install and validate each module separately.
 | [jumin](jumin/README.md) | Generate synthetic resident-number-shaped test values | 1.23.3 |
 | [jwter](jwter/README.md) | Inspect compact JWTs; sign and verify HS256/ES256 tokens | 1.21 |
 | [timetool](timetool/README.md) | Convert Unix seconds/milliseconds, RFC3339, and time zones | 1.27.3 |
+| [portwho](portwho/README.md) | Inspect local TCP listeners and observed process owners; release verification in progress | 1.26.0 |
 
 ## Install
 
@@ -28,6 +29,10 @@ inside the selected module. Remote `@latest` does not include uncommitted change
 Use a currently patched Go toolchain; the module minimum alone is not a promise
 that every later toolchain release is free of known issues.
 
+`portwho` can be built or installed from its local module directory. Its first
+release is still awaiting the native validation recorded in its README; a
+remote `portwho@latest` installation is not assumed to exist yet.
+
 ## Platforms and usage limits
 
 The command-line and HTTP paths can run on Windows, Linux and macOS.
@@ -37,6 +42,11 @@ on Debian/Ubuntu), and an accessible X11 display; macOS requires CGO and the
 platform compiler/frameworks. Linux/macOS builds with `CGO_ENABLED=0` still
 support hashing and verification, but `--clipboard` returns an error.
 Other operating systems have no clipboard implementation in these tools.
+
+`portwho` has native Windows/Linux collectors and a macOS BSD/libproc collector
+requiring CGO and the macOS SDK for source builds. Its results cover the local
+OS/network namespace and visible process owners. See its README for support
+verification status, runtime scope, partial results and exit codes.
 
 `helloworld` defaults to `127.0.0.1:1323`. Its `--log-body` option records raw
 request data and may expose secrets. Masking is limited to documented headers.
@@ -52,7 +62,7 @@ issuer/audience policy, revocation, or application permissions. See the
 ## Verify from a checkout
 
 Run these commands inside **each** of `bcrypter`, `scrypter`, `helloworld`,
-`jumin`, `jwter`, and `timetool` (there is no root Go module):
+`jumin`, `jwter`, `timetool`, and `portwho` (there is no root Go module):
 
 ```sh
 go test -mod=readonly -count=1 -timeout=2m ./...
