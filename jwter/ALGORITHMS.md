@@ -9,13 +9,14 @@ jwter/
   cmd/                      CLI 입력과 출력, 종료 코드
   token/
     token.go                JWT 구조, JSON, 공통 클레임 검증
+    verify.go               서명 검증 후 키 길이·클레임 정책 검사
     algorithms.go           공통 인터페이스와 활성 알고리즘 목록
   algorithm/
     hs256/hs256.go          HMAC secret 처리와 HS256 서명 메서드
     es256/es256.go          P-256 PEM 처리와 ES256 서명 메서드
 ```
 
-`cmd`는 기존과 같이 `token.Encode`와 `token.Decode`만 호출한다. 알고리즘마다 명령을 추가하거나 cmd 내부에서 분기하지 않는다.
+`cmd`는 `token.Encode`, `token.Decode`, `token.Verify`를 호출한다. 알고리즘마다 명령을 추가하거나 cmd 내부에서 분기하지 않는다.
 
 알고리즘 구현은 아래 인터페이스를 만족한다. 인터페이스는 이를 사용하는 token 패키지에 두고, 알고리즘 패키지는 token 패키지를 import하지 않아 순환 의존성을 피한다.
 
