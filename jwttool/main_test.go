@@ -111,6 +111,9 @@ func TestCLI(t *testing.T) {
 				if result.Header["alg"] != "HS256" || result.Header["typ"] != "JWT" || result.Payload == nil || result.Validation == nil {
 					t.Fatalf("decode must include header, payload and validation: %s", stdout.String())
 				}
+				if tt.args[0] == "verify" && result.Validation["valid"] != (tt.code == 0) {
+					t.Fatalf("verify validity does not match exit code: %s", stdout.String())
+				}
 			}
 		})
 	}

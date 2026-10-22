@@ -47,6 +47,14 @@ func TestVerifyPolicies(t *testing.T) {
 		{name: "JWT ID type", body: `{"jti":[]}`, policy: token.Policy{JWTID: "id"}, codes: []string{"jti_invalid"}},
 		{name: "media type normalization", header: `{"alg":"HS256","typ":"application/jWt"}`, body: `{}`, policy: token.Policy{Type: "JWT"}, checks: map[string]string{"typ": "valid"}},
 		{name: "media parameters", header: `{"alg":"HS256","typ":"JWT; Foo=bar"}`, body: `{}`, policy: token.Policy{Type: "application/jwt; foo=bar"}},
+		{name: "quoted media parameter", header: `{"alg":"HS256","typ":"JWT; foo=\"a; profile*=bar\""}`, body: `{}`, policy: token.Policy{Type: `application/jwt; foo="a; profile*=bar"`}, checks: map[string]string{"typ": "valid"}},
+		{name: "escaped quoted media parameter", header: `{"alg":"HS256","typ":"JWT; foo=\"a\\\"; profile*=bar\""}`, body: `{}`, policy: token.Policy{Type: `application/jwt; foo="a\"; profile*=bar"`}, checks: map[string]string{"typ": "valid"}},
+		{name: "media parameter asterisk value", header: `{"alg":"HS256","typ":"JWT; foo=a*b"}`, body: `{}`, policy: token.Policy{Type: "JWT; foo=a*b"}, checks: map[string]string{"typ": "valid"}},
+		{name: "invalid extended media parameter", header: `{"alg":"HS256","typ":"JWT; profile*=garbage"}`, body: `{}`, policy: token.Policy{Type: "JWT"}, codes: []string{"typ_invalid"}, checks: map[string]string{"typ": "invalid"}},
+		{name: "unsupported media parameter charset", header: `{"alg":"HS256","typ":"JWT; profile*=iso-8859-1''admin"}`, body: `{}`, policy: token.Policy{Type: "JWT"}, codes: []string{"typ_invalid"}},
+		{name: "extended media parameter", header: `{"alg":"HS256","typ":"JWT; profile*=utf-8''admin"}`, body: `{}`, policy: token.Policy{Type: "JWT; profile=admin"}, codes: []string{"typ_invalid"}},
+		{name: "media parameter continuation", header: `{"alg":"HS256","typ":"JWT; profile*0=ad; profile*1=min"}`, body: `{}`, policy: token.Policy{Type: "JWT; profile=admin"}, codes: []string{"typ_invalid"}},
+		{name: "missing media parameter continuation", header: `{"alg":"HS256","typ":"JWT; profile*1=admin"}`, body: `{}`, policy: token.Policy{Required: []string{"typ"}}, codes: []string{"typ_invalid"}},
 		{name: "media parameter value case", header: `{"alg":"HS256","typ":"JWT; foo=Bar"}`, body: `{}`, policy: token.Policy{Type: "JWT; foo=bar"}, codes: []string{"typ_mismatch"}},
 		{name: "token type mismatch", body: `{}`, policy: token.Policy{Type: "at+jwt"}, codes: []string{"typ_mismatch"}},
 		{name: "payload type is not header", header: `{"alg":"HS256"}`, body: `{"typ":"JWT"}`, policy: token.Policy{Type: "JWT"}, codes: []string{"typ_missing"}},
@@ -65,6 +73,7 @@ func TestVerifyPolicies(t *testing.T) {
 		{name: "age needs issued at", body: `{}`, policy: token.Policy{MaxAge: time.Second}, codes: []string{"iat_missing"}, checks: map[string]string{"max_age": "invalid"}},
 		{name: "lifetime boundary", body: `{"iat":100,"exp":101}`, policy: token.Policy{MaxLifetime: time.Second}, checks: map[string]string{"max_lifetime": "valid"}},
 		{name: "lifetime exceeded", body: `{"iat":100,"exp":101.000000001}`, policy: token.Policy{MaxLifetime: time.Second}, codes: []string{"max_lifetime_exceeded"}},
+		{name: "lifetime does not use leeway", body: `{"iat":100,"exp":160}`, policy: token.Policy{MaxLifetime: 59 * time.Second, Leeway: 120 * time.Second}, codes: []string{"max_lifetime_exceeded"}, checks: map[string]string{"iat": "valid", "exp": "valid", "max_lifetime": "invalid"}},
 		{name: "zero lifetime", body: `{"iat":100.5,"exp":100.5}`, policy: token.Policy{MaxLifetime: time.Second}, codes: []string{"token_expired", "max_lifetime_invalid"}},
 		{name: "negative lifetime", body: `{"iat":100,"exp":99}`, policy: token.Policy{MaxLifetime: time.Second}, codes: []string{"token_expired", "max_lifetime_invalid"}},
 		{name: "lifetime needs dates", body: `{}`, policy: token.Policy{MaxLifetime: time.Second}, codes: []string{"exp_missing", "iat_missing"}, checks: map[string]string{"max_lifetime": "invalid"}},
@@ -77,10 +86,14 @@ func TestVerifyPolicies(t *testing.T) {
 			}
 			result, err := token.Verify(hmacToken(header, tt.body, secret), "HS256", token.Key{Secret: secret}, tt.policy, now)
 			wantValid := len(tt.codes) == 0
+			wantClaims := "valid"
+			if !wantValid {
+				wantClaims = "invalid"
+			}
 			if wantValid && err != nil || !wantValid && !errors.Is(err, token.ErrValidation) {
 				t.Fatalf("error=%v; want valid=%v", err, wantValid)
 			}
-			if result == nil || result.Validation.Valid == nil || *result.Validation.Valid != wantValid || result.Validation.Signature != "valid" || string(result.Payload) != tt.body {
+			if result == nil || result.Validation.Valid == nil || *result.Validation.Valid != wantValid || result.Validation.Signature != "valid" || result.Validation.Claims != wantClaims || string(result.Payload) != tt.body {
 				t.Fatalf("unexpected verification result: %+v", result)
 			}
 			if strings.Join(result.Validation.Errors, ",") != strings.Join(tt.codes, ",") || len(result.Validation.Checks) != 11 {
@@ -98,11 +111,12 @@ func TestVerifyPolicies(t *testing.T) {
 func TestVerifyKeyLengthAndSignature(t *testing.T) {
 	for _, tt := range []struct {
 		name, secret, code, signature, claims, length string
+		valid                                         bool
 	}{
-		{"31 bytes", strings.Repeat("a", 31), "hmac_key_too_short", "valid", "valid", "invalid"},
-		{"32 bytes", strings.Repeat("a", 32), "", "valid", "valid", "valid"},
-		{"UTF-8 bytes", strings.Repeat("가", 11), "", "valid", "valid", "valid"},
-		{"wrong signature", strings.Repeat("b", 32), "signature_invalid", "invalid", "not_checked", "not_checked"},
+		{"31 bytes", strings.Repeat("a", 31), "hmac_key_too_short", "valid", "valid", "invalid", false},
+		{"32 bytes", strings.Repeat("a", 32), "", "valid", "valid", "valid", true},
+		{"UTF-8 bytes", strings.Repeat("가", 11), "", "valid", "valid", "valid", true},
+		{"wrong signature", strings.Repeat("b", 32), "signature_invalid", "invalid", "not_checked", "not_checked", false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			signingKey := []byte(tt.secret)
@@ -114,7 +128,7 @@ func TestVerifyKeyLengthAndSignature(t *testing.T) {
 			if tt.code == "" && err != nil || tt.code != "" && !errors.Is(err, token.ErrValidation) {
 				t.Fatalf("error=%v; want code %q", err, tt.code)
 			}
-			if result == nil || result.Validation.Signature != tt.signature || result.Validation.Claims != tt.claims || result.Validation.Checks["key_length"] != tt.length || strings.Join(result.Validation.Errors, ",") != tt.code {
+			if result == nil || result.Validation.Valid == nil || *result.Validation.Valid != tt.valid || result.Validation.Signature != tt.signature || result.Validation.Claims != tt.claims || result.Validation.Checks["key_length"] != tt.length || strings.Join(result.Validation.Errors, ",") != tt.code {
 				t.Fatalf("unexpected result: %+v", result)
 			}
 			if tt.code == "signature_invalid" {
@@ -130,6 +144,7 @@ func TestVerifyKeyLengthAndSignature(t *testing.T) {
 
 func TestVerifyConfigurationErrors(t *testing.T) {
 	key := token.Key{Secret: []byte(strings.Repeat("test", 8))}
+	raw := hmacToken(`{"alg":"HS256"}`, `{"sub":"sensitive-user"}`, key.Secret)
 	for _, tt := range []struct {
 		name, algorithm string
 		key             token.Key
@@ -143,10 +158,13 @@ func TestVerifyConfigurationErrors(t *testing.T) {
 		{"negative lifetime", "HS256", key, token.Policy{MaxLifetime: -time.Second}},
 		{"unknown required field", "HS256", key, token.Policy{Required: []string{"sensitive-field"}}},
 		{"invalid expected media type", "HS256", key, token.Policy{Type: "sensitive-type/"}},
+		{"invalid expected extended parameter", "HS256", key, token.Policy{Type: "JWT; profile*=sensitive-value"}},
+		{"expected extended parameter", "HS256", key, token.Policy{Type: "JWT; profile*=utf-8''admin"}},
+		{"expected parameter continuation", "HS256", key, token.Policy{Type: "JWT; profile*1=admin"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := token.Verify("sensitive-token", tt.algorithm, tt.key, tt.policy, time.Unix(100, 0))
-			if result != nil || err == nil || errors.Is(err, token.ErrValidation) || strings.Contains(err.Error(), "sensitive-") {
+			result, err := token.Verify(raw, tt.algorithm, tt.key, tt.policy, time.Unix(100, 0))
+			if result != nil || err == nil || errors.Is(err, token.ErrValidation) || strings.Contains(err.Error(), "sensitive-") || strings.Contains(err.Error(), raw) {
 				t.Fatalf("result=%v error=%v; want safe input error", result, err)
 			}
 		})

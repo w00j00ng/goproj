@@ -100,6 +100,11 @@ ES256 accepts the same P-256 public PEM keys described below.
 | `--max-age` | Positive duration requiring `iat`; accept only when `now - iat <= limit` |
 | `--max-lifetime` | Positive duration requiring `iat` and `exp`; accept only when `0 < exp - iat <= limit` |
 
+RFC 2231 extended or continued media type parameter names containing `*` (such
+as `profile*` or `profile*0`) are unsupported and rejected in both the token's
+`typ` header and `--typ`. Ordinary parameter values may contain `*`, quoted
+semicolons, and escaped quotes.
+
 `--max-age` and `--max-lifetime` are disabled when omitted; explicitly specifying
 zero or a negative value is an input error. Neither maximum is extended by
 `--leeway`. NumericDate fractions and large numbers are compared exactly.

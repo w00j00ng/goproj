@@ -78,6 +78,7 @@ func TestVerifyInputErrors(t *testing.T) {
 		{"unknown required field", []string{"sensitive-token", "--alg", "HS256", "--secret", "sensitive-secret", "--require", "sensitive-field"}, "required fields must be"},
 		{"empty required fields", []string{"sensitive-token", "--alg", "HS256", "--secret", "sensitive-secret", "--require="}, "required fields must not be empty"},
 		{"empty expected value", []string{"sensitive-token", "--alg", "HS256", "--secret", "sensitive-secret", "--iss="}, "expected claim values must not be empty"},
+		{"invalid expected media parameter", []string{"sensitive-token", "--alg", "HS256", "--secret", "sensitive-secret", "--typ", "JWT; profile*=sensitive-value"}, "expected typ must be a valid media type"},
 		{"zero max age", []string{"sensitive-token", "--alg", "HS256", "--secret", "sensitive-secret", "--max-age", "0s"}, "positive durations"},
 		{"negative max lifetime", []string{"sensitive-token", "--alg", "HS256", "--secret", "sensitive-secret", "--max-lifetime", "-1s"}, "positive durations"},
 		{"negative leeway", []string{"sensitive-token", "--alg", "HS256", "--secret", "sensitive-secret", "--leeway", "-1s"}, "durations must not be negative"},

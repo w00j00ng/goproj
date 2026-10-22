@@ -204,5 +204,28 @@ func mediaType(value string) (string, map[string]string, error) {
 	if !strings.Contains(value, "/") {
 		value = "application/" + value
 	}
-	return mime.ParseMediaType(value)
+	mediaType, parameters, err := mime.ParseMediaType(value)
+	if err != nil {
+		return "", nil, err
+	}
+	// MIME parsing can silently discard unsupported RFC 2231 parameters.
+	quoted := false
+	for i := 0; i < len(value); i++ {
+		switch value[i] {
+		case '\\':
+			if quoted {
+				i++
+			}
+		case '"':
+			quoted = !quoted
+		case ';':
+			if !quoted {
+				name, _, _ := strings.Cut(value[i+1:], "=")
+				if strings.Contains(name, "*") {
+					return "", nil, errors.New("extended media type parameters are not supported")
+				}
+			}
+		}
+	}
+	return mediaType, parameters, nil
 }
