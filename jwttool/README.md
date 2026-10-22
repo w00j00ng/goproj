@@ -67,6 +67,69 @@ with `valid: false`, the reason in `errors`, and exit code 1. Claims stay
 This local result does not check issuer/audience policy, revocation, account
 status, or application permissions.
 
+## Verify a token against a policy
+
+```powershell
+jwttool verify "$token" --alg HS256 --secret-env JWT_SECRET --iss https://issuer.example --aud my-api --typ JWT --require exp
+jwttool verify "$token" --alg ES256 --key-file .\public.pem --sub user-123 --require exp,iat --max-age 15m --max-lifetime 1h
+Get-Content -Raw .\token.txt | jwttool verify --token-file - --alg HS256 --secret-env JWT_SECRET --leeway 30s
+```
+
+`verify` requires an explicit `--alg` and exactly one key input. It accepts the
+same positional token, `--token`, and `--token-file` inputs as `decode`, with the
+same duplicate-input and size checks. Signature verification runs before any
+policy checks. A failed signature leaves all policy checks `not_checked`.
+
+HS256 verification requires a secret of at least **32 bytes**, used as provided
+without implicit base64 decoding. UTF-8 byte length, not character count, is
+measured. Length does not prove entropy: use a cryptographically random key.
+A matching signature made with a shorter key returns exit 1 with
+`hmac_key_too_short`; `signature` remains `valid`, `key_length` is `invalid`, and
+the overall `valid` is `false`. This key-length policy is specific to `verify`.
+ES256 accepts the same P-256 public PEM keys described below.
+
+| Option / field | Verification rule |
+| --- | --- |
+| `--iss`, `--sub`, `--jti` | Require a nonempty string matching the expected value exactly, with case-sensitive comparison |
+| `--aud` | Require a nonempty string or nonempty array of nonempty strings containing the expected audience; all array members must have the correct type |
+| `--typ` | Require the JOSE **header** media type; `JWT` and `application/jwt` are equivalent. Type/subtype and parameter names ignore case; parameter values compare exactly |
+| `exp` | When present, require a NumericDate and `now < exp + leeway` |
+| `nbf`, `iat` | When present, require NumericDates and `value <= now + leeway`; future `iat` rejection is a verification policy |
+| `--require` | Require one or more of `iss,sub,aud,exp,nbf,iat,jti,typ`; repeat the option or use commas. Without an expected value, string fields are checked for presence and type only |
+| `--leeway` | Nonnegative clock tolerance for `exp`, `nbf`, and `iat`; default `0s` |
+| `--max-age` | Positive duration requiring `iat`; accept only when `now - iat <= limit` |
+| `--max-lifetime` | Positive duration requiring `iat` and `exp`; accept only when `0 < exp - iat <= limit` |
+
+`--max-age` and `--max-lifetime` are disabled when omitted; explicitly specifying
+zero or a negative value is an input error. Neither maximum is extended by
+`--leeway`. NumericDate fractions and large numbers are compared exactly.
+Optional missing fields are not failures. Expected-value options also make their
+fields mandatory; explicitly empty expected values or an empty `--require` are
+input errors.
+
+Results always contain `header`, `payload`, and `validation`. In addition to the
+aggregate status, `verify` returns `validation.checks` with `valid`, `invalid`, or
+`not_checked` for each of `iss`, `sub`, `aud`, `exp`, `nbf`, `iat`, `jti`, `typ`,
+`key_length`, `max_age`, and `max_lifetime`. Unconfigured string comparisons and
+missing optional dates are `not_checked`. A required-only field marked `valid`
+has passed presence/type checks, without checking an application-specific value.
+If a maximum's required date is missing or malformed, the maximum is `invalid`
+and `errors` identifies the missing/invalid date. The HS256 byte-length check is
+`not_checked` for ES256.
+
+Policy failures return the parsed header and payload, `valid: false`, stable
+codes in `errors`, and exit 1. Examples include `iss_missing`, `aud_mismatch`,
+`iat_invalid`, `token_issued_in_future`, `max_age_exceeded`,
+`max_lifetime_exceeded`, and `max_lifetime_invalid` for a nonpositive interval.
+Invalid options, malformed tokens, and key format/type errors return exit 2.
+
+`valid: true` means the supplied key and selected local policy passed. The caller
+must provide trusted expected values and the issuer's trusted key. A `jti` match
+does not prove uniqueness or prevent replay, and a `sub` match does not query an
+account database. No network requests, revocation checks, or permission checks
+are performed. `decode` retains its optional signature and `exp`/`nbf` checks;
+use `verify` for the additional policies above.
+
 ## Sign a token
 
 ```powershell
@@ -129,9 +192,13 @@ go build -mod=readonly .
 ```
 
 Tests cover published RFC 7515 vectors, both signing algorithms, time boundaries,
-tampering, invalid keys, JSON precision, input sources, and actual CLI exit codes.
+tampering, invalid keys, JSON precision, input sources, verification policies,
+HS256 byte-length limits, and actual CLI exit codes.
 The published example keys in `testdata` are for tests only.
 
 References: [JWT](https://www.rfc-editor.org/rfc/rfc7519.html),
 [JWT best practices](https://www.rfc-editor.org/rfc/rfc8725.html), and
-[golang-jwt](https://github.com/golang-jwt/jwt).
+[golang-jwt](https://github.com/golang-jwt/jwt). HS256 key lengths follow
+[RFC 7518 section 3.2](https://www.rfc-editor.org/rfc/rfc7518.html#section-3.2).
+Header media types follow
+[RFC 7515 section 4.1.9](https://www.rfc-editor.org/rfc/rfc7515.html#section-4.1.9).

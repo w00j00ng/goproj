@@ -25,10 +25,11 @@ type Key struct {
 }
 
 type Validation struct {
-	Signature string   `json:"signature"`
-	Claims    string   `json:"claims"`
-	Valid     *bool    `json:"valid"`
-	Errors    []string `json:"errors"`
+	Signature string            `json:"signature"`
+	Claims    string            `json:"claims"`
+	Valid     *bool             `json:"valid"`
+	Errors    []string          `json:"errors"`
+	Checks    map[string]string `json:"checks,omitempty"`
 }
 
 type Result struct {
@@ -64,6 +65,10 @@ func Encode(body []byte, algorithm string, key Key) (string, error) {
 }
 
 func Decode(raw string, algorithm string, key Key, now time.Time) (*Result, error) {
+	return decode(raw, algorithm, key, now, nil)
+}
+
+func decode(raw string, algorithm string, key Key, now time.Time, policy *Policy) (*Result, error) {
 	if len(raw) == 0 || len(raw) > MaxInputSize {
 		return nil, errors.New("token is empty or exceeds size limit")
 	}
@@ -118,6 +123,12 @@ func Decode(raw string, algorithm string, key Key, now time.Time) (*Result, erro
 			Errors:    []string{},
 		},
 	}
+	if policy != nil {
+		result.Validation.Checks = make(map[string]string)
+		for _, name := range verificationChecks {
+			result.Validation.Checks[name] = "not_checked"
+		}
+	}
 	if key.Secret == nil && key.PEM == nil {
 		if algorithm != "" && algorithm != headerAlgorithm {
 			return nil, errors.New("header algorithm does not match requested algorithm")
@@ -151,9 +162,15 @@ func Decode(raw string, algorithm string, key Key, now time.Time) (*Result, erro
 	}
 	result.Validation.Signature = "valid"
 	result.Validation.Claims = "valid"
-	result.Validation.Errors = validateDates(claims, now)
+	if policy == nil {
+		result.Validation.Errors = validateDates(claims, now)
+		if len(result.Validation.Errors) != 0 {
+			result.Validation.Claims = "invalid"
+		}
+	} else {
+		policy.apply(result, claims, key, now)
+	}
 	if len(result.Validation.Errors) != 0 {
-		result.Validation.Claims = "invalid"
 		return result, ErrValidation
 	}
 	valid = true
@@ -202,19 +219,13 @@ func jsonObject(body []byte) (map[string]any, error) {
 func validateDates(claims map[string]any, now time.Time) []string {
 	codes := []string{}
 	// Compare exact JSON numbers so fractional dates do not inherit JWT's global time precision.
-	instant := new(big.Rat).SetInt64(now.Unix())
-	instant.Add(instant, new(big.Rat).SetFrac64(int64(now.Nanosecond()), int64(time.Second)))
+	instant := numericTime(now)
 	for _, name := range []string{"exp", "nbf"} {
 		value, exists := claims[name]
 		if !exists {
 			continue
 		}
-		number, ok := value.(json.Number)
-		if !ok {
-			codes = append(codes, "claim_type_invalid")
-			continue
-		}
-		date, ok := new(big.Rat).SetString(string(number))
+		date, ok := numericDate(value)
 		if !ok {
 			codes = append(codes, "claim_type_invalid")
 			continue
@@ -228,4 +239,17 @@ func validateDates(claims map[string]any, now time.Time) []string {
 		}
 	}
 	return codes
+}
+
+func numericTime(now time.Time) *big.Rat {
+	instant := new(big.Rat).SetInt64(now.Unix())
+	return instant.Add(instant, new(big.Rat).SetFrac64(int64(now.Nanosecond()), int64(time.Second)))
+}
+
+func numericDate(value any) (*big.Rat, bool) {
+	number, ok := value.(json.Number)
+	if !ok {
+		return nil, false
+	}
+	return new(big.Rat).SetString(string(number))
 }

@@ -153,7 +153,7 @@ func TestInputErrors(t *testing.T) {
 }
 
 func TestAlgorithmHelp(t *testing.T) {
-	for _, args := range [][]string{nil, {"help", "decode"}, {"help", "encode"}} {
+	for _, args := range [][]string{nil, {"help", "decode"}, {"help", "encode"}, {"help", "verify"}} {
 		command := newRootCommand()
 		command.SetArgs(args)
 		var output bytes.Buffer
