@@ -21,7 +21,7 @@ import (
 
 func TestCLI(t *testing.T) {
 	dir := t.TempDir()
-	binary := filepath.Join(dir, "jwttool")
+	binary := filepath.Join(dir, "jwter")
 	if runtime.GOOS == "windows" {
 		binary += ".exe"
 	}
@@ -38,7 +38,7 @@ func TestCLI(t *testing.T) {
 	raw := sign(`{"sub":"user-123"}`, secret)
 	verifySecret := strings.Repeat("test", 8)
 	verifyRaw := sign(`{"iss":"issuer","sub":"user-123","aud":"api","iat":1,"exp":4102444800}`, verifySecret)
-	t.Setenv("JWTTOOL_PROCESS_VERIFY_SECRET", verifySecret)
+	t.Setenv("JWTER_PROCESS_VERIFY_SECRET", verifySecret)
 	for _, tt := range []struct {
 		name   string
 		args   []string
@@ -47,7 +47,7 @@ func TestCLI(t *testing.T) {
 		stdout string
 		stderr string
 	}{
-		{"help", nil, "", 0, "decode", ""},
+		{"help", nil, "", 0, "jwter [command]", ""},
 		{"command help", []string{"help", "decode"}, "", 0, "--token", ""},
 		{"unknown help topic", []string{"help", "sensitive-bad-token"}, "", 2, "", "unknown help topic"},
 		{"positional token", []string{"decode", raw}, "", 0, `"valid": null`, ""},
@@ -55,13 +55,13 @@ func TestCLI(t *testing.T) {
 		{"verified token", []string{"decode", raw, "--secret", secret}, "", 0, `"valid": true`, ""},
 		{"wrong secret", []string{"decode", "--token", raw, "--secret", "wrong-secret"}, "", 1, `"signature_invalid"`, ""},
 		{"expired token", []string{"decode", "--token", sign(`{"exp":1}`, secret), "--secret", secret}, "", 1, `"token_expired"`, ""},
-		{"verify success", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTTOOL_PROCESS_VERIFY_SECRET", "--iss", "issuer", "--aud", "api", "--typ", "JWT", "--require", "exp"}, "", 0, `"valid": true`, ""},
-		{"verify policy failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTTOOL_PROCESS_VERIFY_SECRET", "--iss", "other"}, "", 1, `"iss_mismatch"`, ""},
+		{"verify success", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--iss", "issuer", "--aud", "api", "--typ", "JWT", "--require", "exp"}, "", 0, `"valid": true`, ""},
+		{"verify policy failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--iss", "other"}, "", 1, `"iss_mismatch"`, ""},
 		{"verify weak key", []string{"verify", raw, "--alg", "HS256", "--secret", secret}, "", 1, `"hmac_key_too_short"`, ""},
-		{"verify age failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTTOOL_PROCESS_VERIFY_SECRET", "--max-age", "1h"}, "", 1, `"max_age_exceeded"`, ""},
-		{"verify lifetime failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTTOOL_PROCESS_VERIFY_SECRET", "--max-lifetime", "1h"}, "", 1, `"max_lifetime_exceeded"`, ""},
+		{"verify age failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--max-age", "1h"}, "", 1, `"max_age_exceeded"`, ""},
+		{"verify lifetime failure", []string{"verify", verifyRaw, "--alg", "HS256", "--secret-env", "JWTER_PROCESS_VERIFY_SECRET", "--max-lifetime", "1h"}, "", 1, `"max_lifetime_exceeded"`, ""},
 		{"verify missing key", []string{"verify", verifyRaw, "--alg", "HS256"}, "", 2, "", "verification key is required"},
-		{"verify missing algorithm", []string{"verify", verifyRaw, "--secret-env", "JWTTOOL_PROCESS_VERIFY_SECRET"}, "", 2, "", "--alg is required"},
+		{"verify missing algorithm", []string{"verify", verifyRaw, "--secret-env", "JWTER_PROCESS_VERIFY_SECRET"}, "", 2, "", "--alg is required"},
 		{"removed details flag", []string{"decode", raw, "--details"}, "", 2, "", "invalid flags"},
 		{"wrong algorithm", []string{"decode", "--token", raw, "--alg", "ES256", "--secret", secret}, "", 2, "", ""},
 		{"malformed", []string{"decode", "--token", "sensitive-bad-token", "--secret", secret}, "", 2, "", ""},

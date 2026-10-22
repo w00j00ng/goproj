@@ -1,4 +1,4 @@
-module github.com/w00j00ng/goproj/jwttool
+module github.com/w00j00ng/goproj/jwter
 
 go 1.21
 

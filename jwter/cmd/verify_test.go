@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/w00j00ng/goproj/jwttool/token"
+	"github.com/w00j00ng/goproj/jwter/token"
 )
 
 func TestVerifyCommand(t *testing.T) {
@@ -22,12 +22,12 @@ func TestVerifyCommand(t *testing.T) {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(unsigned))
 	raw := unsigned + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	t.Setenv("JWTTOOL_VERIFY_SECRET", secret)
+	t.Setenv("JWTER_VERIFY_SECRET", secret)
 	file := filepath.Join(t.TempDir(), "token.txt")
 	if err := os.WriteFile(file, []byte(raw), 0600); err != nil {
 		t.Fatal(err)
 	}
-	base := []string{"--alg", "HS256", "--secret-env", "JWTTOOL_VERIFY_SECRET"}
+	base := []string{"--alg", "HS256", "--secret-env", "JWTER_VERIFY_SECRET"}
 	for _, tt := range []struct {
 		name, stdin, code string
 		args              []string

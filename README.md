@@ -9,7 +9,7 @@ its own `go.mod`; install and validate each module separately.
 | [scrypter](scrypter/README.md) | Generate and verify Better Auth default scrypt hashes within documented Unicode limits | 1.25.0 |
 | [helloworld](helloworld/README.md) | Inspect HTTP requests with local defaults and bounded, opt-in body logging | 1.27.3 |
 | [jumin](jumin/README.md) | Generate synthetic resident-number-shaped test values | 1.23.3 |
-| [jwttool](jwttool/README.md) | Inspect compact JWTs; sign and verify HS256/ES256 tokens | 1.21 |
+| [jwter](jwter/README.md) | Inspect compact JWTs; sign and verify HS256/ES256 tokens | 1.21 |
 
 ## Install
 
@@ -18,7 +18,7 @@ go install github.com/w00j00ng/goproj/bcrypter@latest
 go install github.com/w00j00ng/goproj/scrypter@latest
 go install github.com/w00j00ng/goproj/helloworld@latest
 go install github.com/w00j00ng/goproj/jumin@latest
-go install github.com/w00j00ng/goproj/jwttool@latest
+go install github.com/w00j00ng/goproj/jwter@latest
 ```
 
 To try changes in a local checkout before publication, run `go install .`
@@ -41,16 +41,16 @@ request data and may expose secrets. Masking is limited to documented headers.
 `jumin` generates test values; it cannot establish issuance, identity, or
 non-collision with a real person. See each module's README before use.
 
-With no key, `jwttool decode` only inspects the token and returns
+With no key, `jwter decode` only inspects the token and returns
 `validation.valid: null` with exit code 0. Supply a matching secret or public key
 to verify the signature and `exp`/`nbf` claims. Verification does not check
 issuer/audience policy, revocation, or application permissions. See the
-[jwttool README](jwttool/README.md) for input options and examples.
+[jwter README](jwter/README.md) for input options and examples.
 
 ## Verify from a checkout
 
 Run these commands inside **each** of `bcrypter`, `scrypter`, `helloworld`,
-`jumin`, and `jwttool` (there is no root Go module):
+`jumin`, and `jwter` (there is no root Go module):
 
 ```sh
 go test -mod=readonly -count=1 -timeout=2m ./...

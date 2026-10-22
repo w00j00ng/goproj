@@ -5,7 +5,7 @@
 ## 구조
 
 ```text
-jwttool/
+jwter/
   cmd/                      CLI 입력과 출력, 종료 코드
   token/
     token.go                JWT 구조, JSON, 공통 클레임 검증

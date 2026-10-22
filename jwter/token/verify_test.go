@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/w00j00ng/goproj/jwttool/token"
+	"github.com/w00j00ng/goproj/jwter/token"
 )
 
 func TestVerifyPolicies(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/w00j00ng/goproj/jwttool/token"
+	"github.com/w00j00ng/goproj/jwter/token"
 )
 
 func newDecodeCommand() *cobra.Command {

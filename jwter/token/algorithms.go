@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/w00j00ng/goproj/jwttool/algorithm/es256"
-	"github.com/w00j00ng/goproj/jwttool/algorithm/hs256"
+	"github.com/w00j00ng/goproj/jwter/algorithm/es256"
+	"github.com/w00j00ng/goproj/jwter/algorithm/hs256"
 )
 
 type algorithm interface {

@@ -1,4 +1,4 @@
-# JWT Tool
+# jwter
 
 Inspect, verify, and sign compact JWTs. Signing and verification support HS256
 and ES256. All processing is local.
@@ -8,7 +8,7 @@ and ES256. All processing is local.
 Requires Go 1.21 or later:
 
 ```sh
-go install github.com/w00j00ng/goproj/jwttool@latest
+go install github.com/w00j00ng/goproj/jwter@latest
 ```
 
 Or install the current checkout from this directory:
@@ -20,11 +20,11 @@ go install .
 ## Inspect or verify a token
 
 ```powershell
-jwttool decode "$token"
-jwttool decode "$token" --alg HS256 --secret-env JWT_SECRET
-jwttool decode "$token" --alg ES256 --key-file .\public.pem
-jwttool decode --token "$token"
-Get-Content -Raw .\token.txt | jwttool decode --token-file -
+jwter decode "$token"
+jwter decode "$token" --alg HS256 --secret-env JWT_SECRET
+jwter decode "$token" --alg ES256 --key-file .\public.pem
+jwter decode --token "$token"
+Get-Content -Raw .\token.txt | jwter decode --token-file -
 ```
 
 Use exactly one positional token, `--token`, or `--token-file`. Combining input
@@ -70,9 +70,9 @@ status, or application permissions.
 ## Verify a token against a policy
 
 ```powershell
-jwttool verify "$token" --alg HS256 --secret-env JWT_SECRET --iss https://issuer.example --aud my-api --typ JWT --require exp
-jwttool verify "$token" --alg ES256 --key-file .\public.pem --sub user-123 --require exp,iat --max-age 15m --max-lifetime 1h
-Get-Content -Raw .\token.txt | jwttool verify --token-file - --alg HS256 --secret-env JWT_SECRET --leeway 30s
+jwter verify "$token" --alg HS256 --secret-env JWT_SECRET --iss https://issuer.example --aud my-api --typ JWT --require exp
+jwter verify "$token" --alg ES256 --key-file .\public.pem --sub user-123 --require exp,iat --max-age 15m --max-lifetime 1h
+Get-Content -Raw .\token.txt | jwter verify --token-file - --alg HS256 --secret-env JWT_SECRET --leeway 30s
 ```
 
 `verify` requires an explicit `--alg` and exactly one key input. It accepts the
@@ -138,9 +138,9 @@ use `verify` for the additional policies above.
 ## Sign a token
 
 ```powershell
-jwttool encode --body-file .\claims.json --alg HS256 --secret-env JWT_SECRET
-jwttool encode --body '{"sub":"user-123"}' --alg ES256 --key-file .\private.pem
-Get-Content -Raw .\claims.json | jwttool encode --body-file - --alg HS256 --secret-env JWT_SECRET
+jwter encode --body-file .\claims.json --alg HS256 --secret-env JWT_SECRET
+jwter encode --body '{"sub":"user-123"}' --alg ES256 --key-file .\private.pem
+Get-Content -Raw .\claims.json | jwter encode --body-file - --alg HS256 --secret-env JWT_SECRET
 ```
 
 Use exactly one of `--body` and `--body-file`, and explicitly select `--alg HS256`
