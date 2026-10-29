@@ -1,6 +1,6 @@
 module github.com/w00j00ng/goproj/scrypter
 
-go 1.25.0
+go 1.27.3
 
 require (
 	github.com/spf13/cobra v1.8.0

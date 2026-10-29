@@ -113,4 +113,4 @@ initialization/write failures return an error and never report a successful copy
 Clipboard persistence after the program exits depends on the desktop environment
 and clipboard manager, especially on X11.
 
-Building this module requires Go 1.25.0 or newer.
+Building this module requires Go 1.27.3 or newer.

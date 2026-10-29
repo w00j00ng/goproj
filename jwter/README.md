@@ -5,7 +5,7 @@ and ES256. All processing is local.
 
 ## Install
 
-Requires Go 1.21 or later:
+Requires Go 1.27.3 or later:
 
 ```sh
 go install github.com/w00j00ng/goproj/jwter@latest

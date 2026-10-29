@@ -24,7 +24,7 @@ NETLINK_SOCK_DIAG (Ubuntu 24.04 LTS baseline), and macOS 14+ Intel/Apple Silicon
 Release assets and checksums must be produced after native verification on
 each target. This checkout does not establish that a published release exists.
 
-Source builds require Go 1.26 or later. From this directory:
+Source builds require Go 1.27.3 or later. From this directory:
 
 ```sh
 go build -o portwho .
