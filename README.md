@@ -5,13 +5,13 @@ its own `go.mod`; install and validate each module separately.
 
 | Module | Purpose | Minimum Go |
 | --- | --- | --- |
-| [bcrypter](bcrypter/README.md) | Generate and verify bcrypt password hashes | 1.20 |
-| [scrypter](scrypter/README.md) | Generate and verify Better Auth default scrypt hashes within documented Unicode limits | 1.25.0 |
+| [bcrypter](bcrypter/README.md) | Generate and verify bcrypt password hashes | 1.27.3 |
+| [scrypter](scrypter/README.md) | Generate and verify Better Auth default scrypt hashes within documented Unicode limits | 1.27.3 |
 | [helloworld](helloworld/README.md) | Inspect HTTP requests with local defaults and bounded, opt-in body logging | 1.27.3 |
-| [jumin](jumin/README.md) | Generate synthetic resident-number-shaped test values | 1.23.3 |
-| [jwter](jwter/README.md) | Inspect compact JWTs; sign and verify HS256/ES256 tokens | 1.21 |
+| [jumin](jumin/README.md) | Generate synthetic resident-number-shaped test values | 1.27.3 |
+| [jwter](jwter/README.md) | Inspect compact JWTs; sign and verify HS256/ES256 tokens | 1.27.3 |
 | [timetool](timetool/README.md) | Convert Unix seconds/milliseconds, RFC3339, and time zones | 1.27.3 |
-| [portwho](portwho/README.md) | Inspect local TCP listeners and observed process owners; release verification in progress | 1.26.0 |
+| [portwho](portwho/README.md) | Inspect local TCP listeners and observed process owners; release verification in progress | 1.27.3 |
 
 ## Install
 
