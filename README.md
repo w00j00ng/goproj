@@ -88,6 +88,34 @@ Module- or package-level findings without a reported call path remain visible in
 the verbose logs. Plain-text output preserves the scanner's failure exit status;
 JSON/SARIF output alone must not be used as the pass/fail gate.
 
+Only scheduled runs on `main` create or update a security issue when the scanner
+confirms reachable vulnerabilities (exit code 3). PRs, pushes, manual runs, and
+installation, network or analysis errors alone do not create issue notifications.
+The report includes affected modules, the scanned commit, and links to the
+vulnerability details and call paths in the logs. If another module fails to
+scan, the report marks that result as unknown.
+
+One open issue is reused, with its body updated to the latest findings. Close it
+after remediation; a later finding creates a new issue and preserves the closed
+one. A separate comment mentions `@w00j00ng` once per scheduled-run date in KST
+for each issue, including on creation. Rerunning that day's scan updates the body
+without adding another notification comment. Issue reporting is serialized to
+avoid duplicate issues from concurrent runs. Successful scans do not modify or
+automatically close an existing issue.
+
+Only the reporting job receives `issues: write` and `actions: read`; it uses the
+built-in `GITHUB_TOKEN`, so no personal token or mail-service secret is needed.
+Email delivery uses GitHub's participating/mention and comment email settings;
+Actions notification emails can remain disabled. Keep the issue marker in the
+body so subsequent scans can find the open issue.
+
+Test issue creation, reuse and notification rules locally without accessing
+GitHub or sending email:
+
+```sh
+python3 -B -m unittest discover -s .github/scripts -p 'test_security_issue.py' -v
+```
+
 A successful scan does not cover Windows/macOS-specific or CGO-enabled code, and
 it is separate from Dependabot alerts and automatic dependency-update pull
 requests. The workflow does not enable or change those repository settings.
