@@ -88,6 +88,48 @@ Module- or package-level findings without a reported call path remain visible in
 the verbose logs. Plain-text output preserves the scanner's failure exit status;
 JSON/SARIF output alone must not be used as the pass/fail gate.
 
+Only scheduled runs on `main` create or update a security issue when the scanner
+confirms reachable vulnerabilities (exit code 3). PRs, pushes, manual runs, and
+installation, network or analysis errors alone do not create issue notifications.
+The report includes affected modules, the scanned commit, and links to the
+vulnerability details and call paths in the logs. If another module fails to
+scan, the report marks that result as unknown.
+
+One open issue is reused, with its body updated to the latest findings. Close it
+after remediation; a later finding creates a new issue and preserves the closed
+one. A separate comment mentions `@w00j00ng` once per scheduled-run date in KST
+for each issue, including on creation. Rerunning that day's scan updates the body
+without adding another notification comment. Issue reporting is serialized to
+avoid duplicate issues from concurrent runs. Successful scans do not modify or
+automatically close an existing issue.
+
+Only the reporting job receives `issues: write` and `actions: read`; it uses the
+built-in `GITHUB_TOKEN`, so no personal token or mail-service secret is needed.
+Email delivery uses GitHub's participating/mention and comment email settings;
+Actions notification emails can remain disabled. Keep the issue marker in the
+body so subsequent scans can find the open issue.
+
+The workflow calls [Taskfile.yml](Taskfile.yml) for scanning, issue reporting and
+behavior tests. CI pins Task v3.54.0. Install that version and `govulncheck` for
+local use; reporting also requires GitHub CLI (`gh`), `jq`, and the GitHub Actions
+environment variables. The behavior tests use `jq` and POSIX command tools,
+replace `gh` with a local response stub, and never access GitHub or send email.
+Python is not required.
+
+```sh
+go install github.com/go-task/task/v3/cmd/task@v3.54.0
+go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+task security:test
+task --exit-code security:scan MODULE=helloworld
+```
+
+Run these tasks from the repository root, with the Go bin directory on `PATH`.
+`security:scan` accepts one of the seven module names and returns the scanner's
+exit code locally. In CI it records confirmed findings in `GITHUB_OUTPUT`, and
+the workflow's following step fails the job for those findings. `security:report`
+handles the scheduled-main issue and comment rules described above. Keep GitHub
+credentials in `GH_TOKEN`; do not put them in Taskfile variables or commands.
+
 A successful scan does not cover Windows/macOS-specific or CGO-enabled code, and
 it is separate from Dependabot alerts and automatic dependency-update pull
 requests. The workflow does not enable or change those repository settings.
