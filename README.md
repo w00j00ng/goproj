@@ -109,12 +109,26 @@ Email delivery uses GitHub's participating/mention and comment email settings;
 Actions notification emails can remain disabled. Keep the issue marker in the
 body so subsequent scans can find the open issue.
 
-Test issue creation, reuse and notification rules locally without accessing
-GitHub or sending email:
+The workflow calls [Taskfile.yml](Taskfile.yml) for scanning, issue reporting and
+behavior tests. CI pins Task v3.54.0. Install that version and `govulncheck` for
+local use; reporting also requires GitHub CLI (`gh`), `jq`, and the GitHub Actions
+environment variables. The behavior tests use `jq` and POSIX command tools,
+replace `gh` with a local response stub, and never access GitHub or send email.
+Python is not required.
 
 ```sh
-python3 -B -m unittest discover -s .github/scripts -p 'test_security_issue.py' -v
+go install github.com/go-task/task/v3/cmd/task@v3.54.0
+go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+task security:test
+task --exit-code security:scan MODULE=helloworld
 ```
+
+Run these tasks from the repository root, with the Go bin directory on `PATH`.
+`security:scan` accepts one of the seven module names and returns the scanner's
+exit code locally. In CI it records confirmed findings in `GITHUB_OUTPUT`, and
+the workflow's following step fails the job for those findings. `security:report`
+handles the scheduled-main issue and comment rules described above. Keep GitHub
+credentials in `GH_TOKEN`; do not put them in Taskfile variables or commands.
 
 A successful scan does not cover Windows/macOS-specific or CGO-enabled code, and
 it is separate from Dependabot alerts and automatic dependency-update pull
