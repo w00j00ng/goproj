@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 type config struct {
@@ -55,7 +55,7 @@ func main() {
 
 func newServer(cfg config, logger *log.Logger) *echo.Echo {
 	e := echo.New()
-	e.Any("/*", func(c echo.Context) error {
+	e.Any("/*", func(c *echo.Context) error {
 		req := c.Request()
 		headers := req.Header.Clone()
 		for name := range headers {

@@ -76,4 +76,18 @@ Unicode fixtures can be regenerated with
 `node password/testdata/generate.mjs` from `scrypter`; their JSON records the
 Node.js, ICU and Unicode versions. Normal tests do not need Node.js.
 
-CI workflows are deferred; these commands are local verification instructions.
+## Dependency security CI
+
+[Dependency security](.github/workflows/security.yml) scans all seven modules on
+pull requests, pushes to `main`, daily at 22:23 UTC (07:23 KST), and manual runs.
+Each module runs independently on Linux with `CGO_ENABLED=0`, a current stable Go
+toolchain, and the pinned `govulncheck` version documented above.
+
+The scan includes tests and fails when vulnerable functions are reachable.
+Module- or package-level findings without a reported call path remain visible in
+the verbose logs. Plain-text output preserves the scanner's failure exit status;
+JSON/SARIF output alone must not be used as the pass/fail gate.
+
+A successful scan does not cover Windows/macOS-specific or CGO-enabled code, and
+it is separate from Dependabot alerts and automatic dependency-update pull
+requests. The workflow does not enable or change those repository settings.
