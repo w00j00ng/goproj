@@ -99,9 +99,11 @@ One open issue is reused, with its body updated to the latest findings. Close it
 after remediation; a later finding creates a new issue and preserves the closed
 one. A separate comment mentions `@w00j00ng` once per scheduled-run date in KST
 for each issue, including on creation. Rerunning that day's scan updates the body
-without adding another notification comment. Issue reporting is serialized to
-avoid duplicate issues from concurrent runs. Successful scans do not modify or
-automatically close an existing issue.
+without adding another notification comment. Report-only retries reuse each
+module's last scan result within the same workflow run. Run and attempt markers
+prevent older reports from overwriting newer issue content or adding stale
+comments. Issue reporting is serialized to avoid duplicate issues from concurrent
+runs. Successful scans do not modify or automatically close an existing issue.
 
 Only the reporting job receives `issues: write` and `actions: read`; it uses the
 built-in `GITHUB_TOKEN`, so no personal token or mail-service secret is needed.
