@@ -114,6 +114,13 @@ whether findings are reported. Existing issues use ordering markers or their
 recorded SHA and run link for compatibility. Dates deduplicate mention comments.
 Successful scans do not modify or automatically close an existing issue.
 
+The shared report task checks the issue state returned by an update. If the
+issue closed before a new scan reached it, the task reports that scan in a new
+issue. A temporary hidden marker retains the previous report for recovery after
+API failures. An update acknowledged while open counts as reported if the user
+then closes the issue. Closure during an update can leave recovery metadata in
+the closed issue.
+
 Only the reporting job receives `issues: write` and `actions: read`; it uses the
 built-in `GITHUB_TOKEN`, so no personal token or mail-service secret is needed.
 Email delivery uses GitHub's participating/mention and comment email settings;
