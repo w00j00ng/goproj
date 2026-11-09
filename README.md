@@ -109,14 +109,16 @@ Email delivery uses GitHub's participating/mention and comment email settings;
 Actions notification emails can remain disabled. Keep the issue marker in the
 body so subsequent scans can find the open issue.
 
-The workflow calls [Taskfile.yml](Taskfile.yml) for scanning, issue reporting and
-behavior tests. CI pins Task v3.54.0. Install that version and `govulncheck` for
+The root [Taskfile.yml](Taskfile.yml) includes the public
+[w00j00ng/tasks](https://github.com/w00j00ng/tasks) repository as the `tasks` Git
+submodule for scanning, issue reporting and behavior tests. CI pins Task v3.54.0. Install that version and `govulncheck` for
 local use; reporting also requires GitHub CLI (`gh`), `jq`, and the GitHub Actions
 environment variables. The behavior tests use `jq` and POSIX command tools,
 replace `gh` with a local response stub, and never access GitHub or send email.
 Python is not required.
 
 ```sh
+git submodule update --init --recursive
 go install github.com/go-task/task/v3/cmd/task@v3.54.0
 go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 task security:test
@@ -133,3 +135,8 @@ credentials in `GH_TOKEN`; do not put them in Taskfile variables or commands.
 A successful scan does not cover Windows/macOS-specific or CGO-enabled code, and
 it is separate from Dependabot alerts and automatic dependency-update pull
 requests. The workflow does not enable or change those repository settings.
+
+The submodule is pinned to a reviewed commit. CI checks it out with
+`submodules: true`; updates to the common repository take effect only after the
+submodule pointer is updated here and verified. For a fresh clone, use
+`git clone --recurse-submodules https://github.com/w00j00ng/goproj.git`.
