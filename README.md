@@ -88,6 +88,73 @@ Module- or package-level findings without a reported call path remain visible in
 the verbose logs. Plain-text output preserves the scanner's failure exit status;
 JSON/SARIF output alone must not be used as the pass/fail gate.
 
+Only scheduled runs on `main` create or update a security issue when the scanner
+confirms reachable vulnerabilities (exit code 3). PRs, pushes, manual runs, and
+installation, network or analysis errors alone do not create issue notifications.
+The report includes affected modules, the scanned commit, and links to the
+vulnerability details and call paths in the logs. If another module fails to
+scan, the report marks that result as unknown.
+
+One open issue is reused, with its body updated to the latest findings. Close it
+after remediation; a later finding creates a new issue and preserves the closed
+one. A separate comment mentions `@w00j00ng` once per scheduled-run date in KST
+for each issue, including on creation. Rerunning that day's scan updates the body
+without adding another notification comment. Report-only retries reuse each
+module's last scan result within the same workflow run. Run and attempt markers
+prevent older reports from overwriting newer issue content or adding stale
+comments. Issue reporting is serialized with `queue: max` to preserve up to 100
+pending reports and avoid duplicate issues from concurrent runs. Unresolved
+findings confirmed by the next scheduled scan update the open
+issue and produce that date's mention comment. After closure, a new scheduled
+run creates a fresh issue even at the same commit if findings persist. Each body
+records the commit SHA and workflow run ID in a `dependency-security-source`
+marker. Retries with the same SHA and run ID reuse the scan identity; a closed
+issue suppresses that replay. Completion and closure timestamps do not determine
+whether findings are reported. Existing issues use ordering markers or their
+recorded SHA and run link for compatibility. Dates deduplicate mention comments.
+Successful scans do not modify or automatically close an existing issue.
+
+The shared report task checks the issue state returned by an update. If the
+issue closed before a new scan reached it, the task reports that scan in a new
+issue. A temporary hidden marker retains the previous report for recovery after
+API failures. An update acknowledged while open counts as reported if the user
+then closes the issue. Closure during an update can leave recovery metadata in
+the closed issue.
+
+Only the reporting job receives `issues: write` and `actions: read`; it uses the
+built-in `GITHUB_TOKEN`, so no personal token or mail-service secret is needed.
+Email delivery uses GitHub's participating/mention and comment email settings;
+Actions notification emails can remain disabled. Keep the issue marker in the
+body so subsequent scans can find the open issue.
+
+The root [Taskfile.yml](Taskfile.yml) includes the public
+[w00j00ng/tasks](https://github.com/w00j00ng/tasks) repository as the `tasks` Git
+submodule for scanning, issue reporting and behavior tests. CI pins Task v3.54.0. Install that version and `govulncheck` for
+local use; reporting also requires GitHub CLI (`gh`), `jq`, and the GitHub Actions
+environment variables. The behavior tests use `jq` and POSIX command tools,
+replace `gh` with a local response stub, and never access GitHub or send email.
+Python is not required.
+
+```sh
+git submodule update --init --recursive
+go install github.com/go-task/task/v3/cmd/task@v3.54.0
+go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+task security:test
+task --exit-code security:scan MODULE=helloworld
+```
+
+Run these tasks from the repository root, with the Go bin directory on `PATH`.
+`security:scan` accepts one of the seven module names and returns the scanner's
+exit code locally. In CI it records confirmed findings in `GITHUB_OUTPUT`, and
+the workflow's following step fails the job for those findings. `security:report`
+handles the scheduled-main issue and comment rules described above. Keep GitHub
+credentials in `GH_TOKEN`; do not put them in Taskfile variables or commands.
+
 A successful scan does not cover Windows/macOS-specific or CGO-enabled code, and
 it is separate from Dependabot alerts and automatic dependency-update pull
 requests. The workflow does not enable or change those repository settings.
+
+The submodule is pinned to a reviewed commit. CI checks it out with
+`submodules: true`; updates to the common repository take effect only after the
+submodule pointer is updated here and verified. For a fresh clone, use
+`git clone --recurse-submodules https://github.com/w00j00ng/goproj.git`.
