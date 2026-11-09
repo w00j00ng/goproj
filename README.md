@@ -105,12 +105,14 @@ prevent older reports from overwriting newer issue content or adding stale
 comments. Issue reporting is serialized with `queue: max` to preserve up to 100
 pending reports and avoid duplicate issues from concurrent runs. Unresolved
 findings confirmed by the next scheduled scan update the open
-issue and produce that date's mention comment. After closure, a new finding scan
-creates a fresh issue even if it finds the same vulnerability again. Replaying an
-old report or retrying only the report job for a closed issue does not create a
-fresh issue. All closed issues also compare scan completion and issue closure
-timestamps, skipping delayed results completed at or before closure. Successful
-scans do not modify or automatically close an existing issue.
+issue and produce that date's mention comment. After closure, a new scheduled
+run creates a fresh issue even at the same commit if findings persist. Each body
+records the commit SHA and workflow run ID in a `dependency-security-source`
+marker. Retries with the same SHA and run ID reuse the scan identity; a closed
+issue suppresses that replay. Completion and closure timestamps do not determine
+whether findings are reported. Existing issues use ordering markers or their
+recorded SHA and run link for compatibility. Dates deduplicate mention comments.
+Successful scans do not modify or automatically close an existing issue.
 
 Only the reporting job receives `issues: write` and `actions: read`; it uses the
 built-in `GITHUB_TOKEN`, so no personal token or mail-service secret is needed.
