@@ -102,14 +102,15 @@ for each issue, including on creation. Rerunning that day's scan updates the bod
 without adding another notification comment. Report-only retries reuse each
 module's last scan result within the same workflow run. Run and attempt markers
 prevent older reports from overwriting newer issue content or adding stale
-comments. Issue reporting is serialized to avoid duplicate issues from concurrent
-runs. Unresolved findings confirmed by the next scheduled scan update the open
+comments. Issue reporting is serialized with `queue: max` to preserve up to 100
+pending reports and avoid duplicate issues from concurrent runs. Unresolved
+findings confirmed by the next scheduled scan update the open
 issue and produce that date's mention comment. After closure, a new finding scan
 creates a fresh issue even if it finds the same vulnerability again. Replaying an
 old report or retrying only the report job for a closed issue does not create a
-fresh issue. Closed issues without an ordering marker use scan completion and
-issue closure timestamps. Successful scans do not modify or automatically close
-an existing issue.
+fresh issue. All closed issues also compare scan completion and issue closure
+timestamps, skipping delayed results completed at or before closure. Successful
+scans do not modify or automatically close an existing issue.
 
 Only the reporting job receives `issues: write` and `actions: read`; it uses the
 built-in `GITHUB_TOKEN`, so no personal token or mail-service secret is needed.
