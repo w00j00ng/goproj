@@ -5,7 +5,7 @@ RFC3339. All conversions run locally.
 
 ## Install
 
-Requires Go 1.27.3 or newer. From this checkout, run inside the timetool directory:
+Requires Go 1.27.4 or newer. From this checkout, run inside the timetool directory:
 
 ```sh
 go install .

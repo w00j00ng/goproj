@@ -4,7 +4,7 @@ An Echo HTTP request inspector. Every successfully read request returns `200 OK`
 
 ## Install
 
-Requires Go 1.27.3 or newer, including the standard library security fixes.
+Requires Go 1.27.4 or newer, including the standard library security fixes.
 
 ```sh
 go install github.com/w00j00ng/goproj/helloworld@latest
