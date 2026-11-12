@@ -80,27 +80,39 @@ Node.js, ICU and Unicode versions. Normal tests do not need Node.js.
 
 [Dependency security](.github/workflows/security.yml) scans all seven modules on
 pull requests, pushes to `main`, daily at 22:23 UTC (07:23 KST), and manual runs.
-Each module runs independently on Linux with `CGO_ENABLED=0`, a current stable Go
-toolchain, and the pinned `govulncheck` version documented above.
+Each module runs independently in four native runner configurations: Linux with
+`CGO_ENABLED=0` and `1`, Windows with `CGO_ENABLED=0`, and macOS with
+`CGO_ENABLED=1`. The matrix has 28 scan jobs. Linux CGO scans install X11 headers;
+macOS uses the runner's compiler and SDK. Each result records the actual OS,
+architecture, CGO setting, Go version, and pinned scanner version. Other
+architectures are outside this matrix.
 
 The scan includes tests and fails when vulnerable functions are reachable.
-Module- or package-level findings without a reported call path remain visible in
-the verbose logs. Plain-text output preserves the scanner's failure exit status;
-JSON/SARIF output alone must not be used as the pass/fail gate.
+Package- and module-level findings without a reported call path pass the CI gate
+and remain dependency-update warnings. The shared Task classifies the scanner's
+JSON findings explicitly: JSON output can exit successfully even when it contains
+reachable vulnerabilities. Scanner, JSON, and result-transfer errors fail the
+check and are not treated as clean scans.
 
-Only scheduled runs on `main` create or update a security issue when the scanner
-confirms reachable vulnerabilities (exit code 3). PRs, pushes, manual runs, and
-installation, network or analysis errors alone do not create issue notifications.
-The report includes affected modules, the scanned commit, and links to the
-vulnerability details and call paths in the logs. If another module fails to
-scan, the report marks that result as unknown.
+Only scheduled runs on `main` create or update a security issue for reachable
+vulnerabilities or dependency-update warnings. The report runs after successful
+scans as well as failed scans, so warning-only results are included. PRs, pushes,
+manual runs, and installation, network or analysis errors alone do not create
+issue notifications. One issue groups the findings by evidence level and includes
+affected modules, platforms, found/fixed versions, the scanned commit, and links
+to the vulnerability details and call paths. If another scan fails, its result is
+unknown.
 
 One open issue is reused, with its body updated to the latest findings. Close it
 after remediation; a later finding creates a new issue and preserves the closed
 one. A separate comment mentions `@w00j00ng` once per scheduled-run date in KST
 for each issue, including on creation. Rerunning that day's scan updates the body
-without adding another notification comment. Report-only retries reuse each
-module's last scan result within the same workflow run. Run and attempt markers
+without adding another notification comment. Go scan jobs upload
+`security-result.json` artifacts, with a unique name per module, configuration,
+and scan attempt. Report-only retries reuse each configuration's last scan result
+within the same workflow run. A newer scan with a missing, expired, or invalid
+artifact is unknown; the report does not fall back to an older scan. Run and
+attempt markers
 prevent older reports from overwriting newer issue content or adding stale
 comments. Issue reporting is serialized with `queue: max` to preserve up to 100
 pending reports and avoid duplicate issues from concurrent runs. Unresolved
@@ -112,7 +124,7 @@ marker. Retries with the same SHA and run ID reuse the scan identity; a closed
 issue suppresses that replay. Completion and closure timestamps do not determine
 whether findings are reported. Existing issues use ordering markers or their
 recorded SHA and run link for compatibility. Dates deduplicate mention comments.
-Successful scans do not modify or automatically close an existing issue.
+Clean scans do not modify or automatically close an existing issue.
 
 The shared report task checks the issue state returned by an update. If the
 issue closed before a new scan reached it, the task reports that scan in a new
@@ -144,15 +156,20 @@ task --exit-code security:scan MODULE=helloworld
 ```
 
 Run these tasks from the repository root, with the Go bin directory on `PATH`.
-`security:scan` accepts one of the seven module names and returns the scanner's
-exit code locally. In CI it records confirmed findings in `GITHUB_OUTPUT`, and
-the workflow's following step fails the job for those findings. `security:report`
+`security:scan` accepts one of the seven module names. Locally it returns 3 for
+reachable vulnerabilities, 0 for warnings or no findings, and a nonzero error for
+failed scans. It preserves an explicit `CGO_ENABLED` setting and defaults to 0.
+In CI it records reachable findings in `GITHUB_OUTPUT`, and the workflow's
+following step fails the job for those findings. `SECURITY_RESULT_FILE` selects
+the result file and `SECURITY_SCAN_KEY` identifies the module/configuration.
+`security:report`
 handles the scheduled-main issue and comment rules described above. Keep GitHub
 credentials in `GH_TOKEN`; do not put them in Taskfile variables or commands.
 
-A successful scan does not cover Windows/macOS-specific or CGO-enabled code, and
-it is separate from Dependabot alerts and automatic dependency-update pull
-requests. The workflow does not enable or change those repository settings.
+These scans cover only the recorded native runner configurations. Static
+analysis can miss calls, and it is separate from Dependabot alerts and automatic
+dependency-update pull requests. The workflow does not enable or change those
+repository settings.
 
 The submodule is pinned to a reviewed commit. CI checks it out with
 `submodules: true`; updates to the common repository take effect only after the
