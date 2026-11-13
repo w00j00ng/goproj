@@ -80,9 +80,13 @@ Node.js, ICU and Unicode versions. Normal tests do not need Node.js.
 
 [Dependency security](.github/workflows/security.yml) scans all seven modules on
 pull requests, pushes to `main`, daily at 22:23 UTC (07:23 KST), and manual runs.
-Each module runs independently in four native runner configurations: Linux with
+Four native runner jobs scan all seven modules sequentially: Linux with
 `CGO_ENABLED=0` and `1`, Windows with `CGO_ENABLED=0`, and macOS with
-`CGO_ENABLED=1`. The matrix has 28 scan jobs. Linux CGO scans install X11 headers;
+`CGO_ENABLED=1`. The matrix has four scan jobs covering 28 module/target combinations.
+Go, Task, and govulncheck are prepared once per target.
+A module failure does not prevent the remaining modules from being scanned.
+Each environment artifact contains a manifest and per-module result JSON and Task exit code.
+Linux CGO scans install X11 headers;
 macOS uses the runner's compiler and SDK. Each result records the actual OS,
 architecture, CGO setting, Go version, and pinned scanner version. Other
 architectures are outside this matrix.
@@ -107,9 +111,9 @@ One open issue is reused, with its body updated to the latest findings. Close it
 after remediation; a later finding creates a new issue and preserves the closed
 one. A separate comment mentions `@w00j00ng` once per scheduled-run date in KST
 for each issue, including on creation. Rerunning that day's scan updates the body
-without adding another notification comment. Go scan jobs upload
-`security-result.json` artifacts, with a unique name per module, configuration,
-and scan attempt. Report-only retries reuse each configuration's last scan result
+without adding another notification comment. Each environment job uploads one artifact named for its configuration and scan
+attempt, containing `manifest.json` and each module's `security-result.json`
+and `exit-code`. Report-only retries reuse each configuration's last scan result
 within the same workflow run. A newer scan with a missing, expired, or invalid
 artifact is unknown; the report does not fall back to an older scan. Run and
 attempt markers

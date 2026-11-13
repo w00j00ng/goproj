@@ -13,13 +13,12 @@ permissions:
 
 jobs:
   govulncheck:
-    name: dependency-scan (go/${{ matrix.module }}/${{ matrix.target.id }})
+    name: dependency-scan (go-batch/${{ matrix.target.id }})
     runs-on: ${{ matrix.target.runner }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        module: [bcrypter, scrypter, helloworld, jumin, jwter, timetool, portwho]
         target:
           - id: linux-cgo0
             runner: ubuntu-24.04
@@ -36,10 +35,11 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: ${{ matrix.module }}
+        working-directory: .
     env:
       CGO_ENABLED: ${{ matrix.target.cgo }}
-      SECURITY_SCAN_KEY: go-${{ matrix.module }}-${{ matrix.target.id }}
+      SECURITY_SCAN_KEY: go-batch-${{ matrix.target.id }}
+      SECURITY_BATCH_TARGET: ${{ matrix.target.id }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -50,8 +50,8 @@ jobs:
           go-version: stable
           check-latest: true
           cache-dependency-path: |
-            ${{ matrix.module }}/go.mod
-            ${{ matrix.module }}/go.sum
+            */go.mod
+            */go.sum
       - name: Prepare Linux clipboard headers
         if: matrix.target.id == 'linux-cgo1'
         run: |
@@ -70,17 +70,17 @@ jobs:
         id: scan
         working-directory: .
         env:
-          SECURITY_RESULT_FILE: ${{ runner.temp }}/security-result.json
-        run: task --exit-code security:scan MODULE=${{ matrix.module }}
+          SECURITY_RESULT_DIR: ${{ runner.temp }}/security-results
+        run: task --exit-code security:scan-batch MODULES="bcrypter scrypter helloworld jumin jwter timetool portwho"
       - name: Upload scan result
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-scan-${{ env.SECURITY_SCAN_KEY }}-attempt-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/security-result.json
+          path: ${{ runner.temp }}/security-results
           if-no-files-found: error
       - name: Fail for reachable vulnerabilities
-        if: steps.scan.outputs.vulnerable == 'true'
+        if: ${{ !cancelled() && steps.scan.outputs.vulnerable == 'true' }}
         run: exit 1
 
   security-issue:
