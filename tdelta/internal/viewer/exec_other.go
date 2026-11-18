@@ -2,8 +2,11 @@
 
 package viewer
 
-import "os/exec"
+import (
+	"context"
+	"os/exec"
+)
 
-func editorCommand(editor, path string) (*exec.Cmd, error) {
-	return exec.Command("sh", "-c", editor+" \"$1\"", "tdelta", path), nil
+func editorCommand(ctx context.Context, editor, path string) (*exec.Cmd, error) {
+	return exec.CommandContext(ctx, "sh", "-c", editor+" \"$1\"", "tdelta", path), nil
 }

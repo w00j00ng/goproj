@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -11,7 +12,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func editorCommand(editor, path string) (*exec.Cmd, error) {
+func editorCommand(ctx context.Context, editor, path string) (*exec.Cmd, error) {
 	system, err := windows.GetSystemDirectory()
 	if err != nil {
 		return nil, fmt.Errorf("find cmd.exe: %w", err)
@@ -21,7 +22,7 @@ func editorCommand(editor, path string) (*exec.Cmd, error) {
 		return nil, errors.New("editor temporary directory must be on a local drive on Windows")
 	}
 	shell := filepath.Join(system, "cmd.exe")
-	child := exec.Command(shell)
+	child := exec.CommandContext(ctx, shell)
 	child.Dir = dir
 	// Only the configured command and the fixed filename go through the cmd parser.
 	child.SysProcAttr = &syscall.SysProcAttr{CmdLine: "\"" + shell + "\" /d /v:off /s /c \"" + editor + " change.diff\""}

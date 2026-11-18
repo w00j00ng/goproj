@@ -121,11 +121,13 @@ func lines(w *bufio.Writer, data []byte, prefix byte, color bool) error {
 	return nil
 }
 
-func Escape(s string, allowTab bool) string {
-	control := func(r rune) bool {
-		return (unicode.IsControl(r) && !(allowTab && r == '\t')) || unicode.Is(unicode.Bidi_Control, r)
+func Escape(s string, diffLine bool) string {
+	escape := func(r rune) bool {
+		return (diffLine && r == '\\') ||
+			(unicode.IsControl(r) && !(diffLine && r == '\t')) ||
+			unicode.Is(unicode.Bidi_Control, r)
 	}
-	first := strings.IndexFunc(s, func(r rune) bool { return r == utf8.RuneError || control(r) })
+	first := strings.IndexFunc(s, func(r rune) bool { return r == utf8.RuneError || escape(r) })
 	if first < 0 {
 		return s
 	}
@@ -136,7 +138,7 @@ func Escape(s string, allowTab bool) string {
 		switch {
 		case r == utf8.RuneError && size == 1:
 			fmt.Fprintf(&b, "\\x%02x", s[0])
-		case control(r):
+		case escape(r):
 			q := strconv.QuoteRuneToASCII(r)
 			b.WriteString(q[1 : len(q)-1])
 		default:

@@ -1,12 +1,15 @@
 package viewer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 func Configured(explicit string) (string, error) {
@@ -20,6 +23,9 @@ func Configured(explicit string) (string, error) {
 
 // Open writes a scratch diff and removes it after the configured editor exits.
 func Open(editor string, stdin io.Reader, stdout, stderr io.Writer, writeDiff func(io.Writer) error) (err error) {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+	defer stop()
+
 	dir, err := os.MkdirTemp("", "tdelta-")
 	if err != nil {
 		return fmt.Errorf("create editor directory: %w", err)
@@ -40,7 +46,7 @@ func Open(editor string, stdin io.Reader, stdout, stderr io.Writer, writeDiff fu
 	if err := errors.Join(writeDiff(f), f.Close()); err != nil {
 		return fmt.Errorf("write editor file: %w", err)
 	}
-	child, err := editorCommand(editor, path)
+	child, err := editorCommand(ctx, editor, path)
 	if err != nil {
 		return err
 	}

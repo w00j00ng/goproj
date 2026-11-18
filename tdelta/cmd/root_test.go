@@ -174,6 +174,22 @@ func TestCLIOutput(t *testing.T) {
 	}
 }
 
+func TestCLIControlEscape(t *testing.T) {
+	for _, tc := range []struct{ name, before, after, want string }{
+		{"CR to text", "line\r\n", "line\\r\n", "-line\\r\n+line\\\\r\n"},
+		{"text to CR", "line\\r\n", "line\r\n", "-line\\\\r\n+line\\r\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			target := put(t, filepath.Join(t.TempDir(), "after.txt"), tc.after)
+			code, out, stderr := run(t, tc.before, "diff", "-", target, "--color=never")
+			_, got, _ := strings.Cut(out, "@@ -1 +1 @@\n")
+			if code != 1 || stderr != "" || got != tc.want {
+				t.Fatalf("diff = %d, %q, %q; want body %q", code, out, stderr, tc.want)
+			}
+		})
+	}
+}
+
 func TestCLIColorAndControls(t *testing.T) {
 	a := put(t, filepath.Join(t.TempDir(), "a"), "old\x1b[2J\u202e\n")
 	b := put(t, filepath.Join(t.TempDir(), "b"), "new\r\n")
