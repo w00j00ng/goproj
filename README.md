@@ -11,6 +11,7 @@ its own `go.mod`; install and validate each module separately.
 | [jumin](jumin/README.md) | Generate synthetic resident-number-shaped test values | 1.27.4 |
 | [jwter](jwter/README.md) | Inspect compact JWTs; sign and verify HS256/ES256 tokens | 1.27.4 |
 | [timetool](timetool/README.md) | Convert Unix seconds/milliseconds, RFC3339, and time zones | 1.27.4 |
+| [tdelta](tdelta/README.md) | Compare text files and store or apply compressed deltas | 1.27.4 |
 | [portwho](portwho/README.md) | Inspect local TCP listeners and observed process owners; release verification in progress | 1.27.4 |
 
 ## Install
@@ -62,7 +63,7 @@ issuer/audience policy, revocation, or application permissions. See the
 ## Verify from a checkout
 
 Run these commands inside **each** of `bcrypter`, `scrypter`, `helloworld`,
-`jumin`, `jwter`, `timetool`, and `portwho` (there is no root Go module):
+`jumin`, `jwter`, `timetool`, `tdelta`, and `portwho` (there is no root Go module):
 
 ```sh
 go test -mod=readonly -count=1 -timeout=2m ./...
